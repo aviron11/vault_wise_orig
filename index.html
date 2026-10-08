@@ -3793,10 +3793,11 @@
                 </div>
                 </div>
                 <div class="flex flex-wrap gap-1.5 pt-1">
-                ${[...catData.sub]
-                  .sort((a, b) => a.localeCompare(b, "he"))
+                ${[...(catData.sub || [])]
+                  .filter(Boolean) // מוודא שאין ערכים ריקים או null
+                  .sort((a, b) => String(a).localeCompare(String(b), "he"))
                   .map((sub) => {
-                    const safeSub = sub.replace(/'/g, "\\'");
+                    const safeSub = String(sub).replace(/'/g, "\\'");
                     return `
                         <span class="bg-zinc-900 border border-zinc-800 px-2 py-1 rounded-lg flex items-center gap-1 text-zinc-400">
                         ${sub}
