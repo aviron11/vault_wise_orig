@@ -1255,14 +1255,14 @@
 
     <script>
       lucide.createIcons();
- 
+
       const firebaseConfig = {
         apiKey: "AIzaSyDyXgQZnhi38ulPTxwjEupEDx1VuTOefZ4",
         authDomain: "vaultwise-790f0.firebaseapp.com",
         projectId: "vaultwise-790f0",
         storageBucket: "vaultwise-790f0.firebasestorage.app",
         messagingSenderId: "1088798597620",
-        appId: "1:1088798597620:web:e2c266e5b5c6d2a1b919a1"
+        appId: "1:1088798597620:web:e2c266e5b5c6d2a1b919a1",
       };
 
       const defaultCategories = {
@@ -3045,25 +3045,45 @@
           }
         }
 
-        // --- שיוך קטגוריות אוטומטי לפי מילות מפתח ---
+        // --- שיוך קטגוריות אוטומטי לפי מילות מפתח מוגדרות מראש ---
         let autoCategory = null;
         let autoSubCategory = null;
 
-        for (const [mainCat, catData] of Object.entries(db.categories)) {
-          for (const sub of catData.sub) {
-            // מסיר אמוג'ים וסימנים מיוחדים משם תת-הקטגוריה כדי לאפשר זיהוי קל
-            // (ככה כשתכתוב "סופר", המערכת תדע לקשר את זה לתת הקטגוריה "סופר 🛒")
-            const cleanSub = sub
-              .replace(/[^\u0590-\u05FFa-zA-Z0-9 ]/g, "")
-              .trim();
+        if (
+          note.includes("רמי לוי") ||
+          note.includes("ויקטורי") ||
+          note.includes("שופרסל") ||
+          note.includes("מחסני השוק") ||
+          note.includes("חלב") ||
+          note.includes("ביצים")
+        ) {
+          autoCategory = "הוצאות בית 🏠";
+          autoSubCategory = "סופר 🛒";
+        } else if (
+          note.includes("המבורגר") ||
+          note.includes("פיצה") ||
+          note.includes("גפניקה") ||
+          note.includes("קאלדו") ||
+          note.includes("בלאק")
+        ) {
+          autoCategory = "אוכל בחוץ 🍜";
+          autoSubCategory = "מסעדות";
+        } else {
+          // סריקה גנרית כגיבוי לשאר המילים
+          for (const [mainCat, catData] of Object.entries(db.categories)) {
+            for (const sub of catData.sub) {
+              const cleanSub = sub
+                .replace(/[^\u0590-\u05FFa-zA-Z0-9 ]/g, "")
+                .trim();
 
-            if (cleanSub.length > 1 && note.includes(cleanSub)) {
-              autoCategory = mainCat;
-              autoSubCategory = sub;
-              break;
+              if (cleanSub.length > 1 && note.includes(cleanSub)) {
+                autoCategory = mainCat;
+                autoSubCategory = sub;
+                break;
+              }
             }
+            if (autoCategory) break;
           }
-          if (autoCategory) break; // מפסיק את הסריקה ברגע שנמצאה התאמה
         }
 
         if (autoCategory) {
