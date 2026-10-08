@@ -2032,7 +2032,7 @@
             ? db.incomeCategories || defaultIncomeCategories
             : db.categories;
 
-        // מיון קטגוריות
+        // מיון אלפביתי של קטגוריות ראשיות (עברית)
         const sortedCats = Object.keys(sourceCats).sort((a, b) =>
           a.localeCompare(b, "he"),
         );
@@ -2049,7 +2049,7 @@
           budgetSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
         });
 
-        // מיון קופות
+        // מיון אלפביתי של קופות
         const sortedVaults = Object.keys(db.vaults).sort((a, b) =>
           a.localeCompare(b, "he"),
         );
@@ -2138,7 +2138,7 @@
           sourceCats[selectedCat] &&
           sourceCats[selectedCat].sub
         ) {
-          // מיון תת-קטגוריות
+          // מיון אלפביתי מוקפד של תת-הקטגוריות (עברית)
           const sortedSubs = [...sourceCats[selectedCat].sub].sort((a, b) =>
             a.localeCompare(b, "he"),
           );
