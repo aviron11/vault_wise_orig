@@ -3397,23 +3397,6 @@
         //     }
         // }
 
-        const totalBank =
-          projectedBalances.aviron +
-          projectedBalances.orian +
-          projectedBalances.joint;
-
-        document.getElementById("balanceAviron").innerHTML = formatILS(
-          projectedBalances.aviron,
-        );
-        document.getElementById("balanceOrian").innerHTML = formatILS(
-          projectedBalances.orian,
-        );
-        document.getElementById("balanceJoint").innerHTML = formatILS(
-          projectedBalances.joint,
-        );
-        document.getElementById("totalBankBalance").innerHTML =
-          "סך הכל: " + formatILS(totalBank);
-
         const vaultsList = document.getElementById("vaultsList");
         const vaultEntries = Object.entries(db.vaults || {}).sort((a, b) => {
           if (a[0] === "שארית מהתקציבים") return 1; // תמיד בסוף
