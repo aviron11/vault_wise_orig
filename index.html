@@ -3313,18 +3313,31 @@
           note: note,
           isJointPaidPrivate: isJointPrivate,
         });
+        // בדיקה האם המשתמש ביקש לשכפל את התנועה לחודשים נוספים
+        const duplicateCheckbox = document.getElementById("inputIsDuplicate");
+        const isDuplicateChecked = duplicateCheckbox
+          ? duplicateCheckbox.checked
+          : false;
 
-        // בדיקה האם המשתמש ביקש לשכפל את התנועה לחודשים נבחרים (פעיל רק בעריכה)
-        const isDuplicateChecked =
-          document.getElementById("inputIsDuplicate")?.checked;
         if (editingTransactionId && isDuplicateChecked) {
           const checkboxes = document.querySelectorAll(
             'input[name="dupMonth"]:checked',
           );
+          // Convert NodeList to a standard Array to prevent .forEach crashes on certain engines
+          const checkboxesArray = Array.from(checkboxes);
 
-          checkboxes.forEach((cb, index) => {
-            const [dupM, dupY] = cb.value.split("|").map(Number);
-            let dupDate = `${String(targetDay).padStart(2, "0")}/${String(dupM + 1).padStart(2, "0")}/${dupY}`;
+          checkboxesArray.forEach(function (cb, index) {
+            const parts = cb.value.split("|");
+            const dupM = parseInt(parts[0], 10);
+            const dupY = parseInt(parts[1], 10);
+
+            // Bulletproof string padding without relying on modern .padStart()
+            let dupMonthStr = String(dupM + 1);
+            if (dupMonthStr.length < 2) dupMonthStr = "0" + dupMonthStr;
+            let targetDayStr = String(targetDay);
+            if (targetDayStr.length < 2) targetDayStr = "0" + targetDayStr;
+
+            let dupDate = targetDayStr + "/" + dupMonthStr + "/" + dupY;
 
             // עדכון יתרות העו"ש / קופה עבור כל עותק שנוצר
             if (activeType === "expense")
@@ -3337,7 +3350,7 @@
               db.vaults[targetVault] = (db.vaults[targetVault] || 0) - amount;
 
             db.transactions.unshift({
-              id: Date.now() + index + 1, // מזהה ייחודי לכל עותק
+              id: Date.now() + index + 10, // מזהה ייחודי לכל עותק
               date: dupDate,
               month: dupM,
               year: dupY,
@@ -3347,7 +3360,7 @@
               category: catTitle,
               subCategory: subTitle,
               note: note + " (עותק)",
-              isJointPaidPrivate: isJointPrivate, // תוקן השם כאן
+              isJointPaidPrivate: isJointPrivate,
             });
           });
         }
