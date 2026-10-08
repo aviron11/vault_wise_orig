@@ -1213,10 +1213,10 @@
             </label>
           </div>
 
-          <!-- אזור שכפול תנועה (מופיע רק בעריכה) -->
+          <!-- אזור שכפול תנועה לחודשים ספציפיים (מופיע רק בעריכה) -->
           <div
             id="duplicateSection"
-            class="hidden bg-zinc-950 p-3 rounded-xl border border-zinc-800/80 space-y-2 mt-3"
+            class="hidden bg-zinc-950 p-3 rounded-xl border border-zinc-800/80 space-y-2.5 mt-3"
           >
             <label
               class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer"
@@ -1228,37 +1228,21 @@
                 onchange="toggleDuplicateFields()"
               />
               <span class="font-bold text-amber-400"
-                >שכפל תנועה זו (יצירת עותקים נוספים)</span
+                >שכפל תנועה זו לחודשים נוספים</span
               >
             </label>
             <div
               id="duplicateFields"
               class="hidden space-y-2 pt-2 border-t border-zinc-800/60"
             >
-              <div>
-                <label class="text-[10px] text-zinc-400 block mb-1"
-                  >כמות עותקים לשכפול:</label
-                >
-                <input
-                  type="number"
-                  id="inputDuplicateCount"
-                  value="1"
-                  min="1"
-                  max="24"
-                  class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-              <div>
-                <label class="text-[10px] text-zinc-400 block mb-1"
-                  >מרווח זמן בין העותקים:</label
-                >
-                <select
-                  id="inputDuplicateInterval"
-                  class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="month">חודש קדימה לכל עותק (מחזורי)</option>
-                  <option value="same">אותו חודש ותאריך (עותקים נוספים)</option>
-                </select>
+              <label class="text-[10px] text-zinc-400 block"
+                >בחר את החודשים אליהם תרצה לשכפל את התנועה:</label
+              >
+              <div
+                id="duplicateMonthsList"
+                class="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto no-scrollbar"
+              >
+                <!-- יתמלא דינמית ב-JS -->
               </div>
             </div>
           </div>
@@ -2514,6 +2498,8 @@
         document.getElementById("duplicateSection").classList.remove("hidden");
         document.getElementById("inputIsDuplicate").checked = false;
         document.getElementById("duplicateFields").classList.add("hidden");
+
+        populateDuplicateMonths(t.month, t.year);
       }
 
       function addNewMainCategory() {
@@ -3333,47 +3319,22 @@
           isJointPaidPrivate: isJointPrivate,
         });
 
-        // בדיקה האם המשתמש ביקש לשכפל את התנועה (רלוונטי רק בעריכה)
+        // בדיקה האם המשתמש ביקש לשכפל את התנועה לחודשים נבחרים
         const isDuplicateChecked =
           document.getElementById("inputIsDuplicate")?.checked;
         if (editingTransactionId && isDuplicateChecked) {
-          const dupCount =
-            parseInt(document.getElementById("inputDuplicateCount").value) || 1;
-          const interval = document.getElementById(
-            "inputDuplicateInterval",
-          ).value;
-
-          let currM = tMonth;
-          let currY = tYear;
-          let currDay = targetDay;
-
-          for (let i = 0; i < dupCount; i++) {
-            if (interval === "month") {
-              currM++;
-              if (currM > 11) {
-                currM = 0;
-                currY++;
-              }
-            }
-
-            // יצירת תאריך חדש לעותק
-            let dupDate = `${String(currDay).padStart(2, "0")}/${String(currM + 1).padStart(2, "0")}/${currY}`;
-
-            // עדכון יתרות העו"ש / קופה עבור העותק החדש
-            if (activeType === "expense")
-              adjustAccountOrVault(finalAccount, amount, true);
-            else if (activeType === "income")
-              adjustAccountOrVault(finalAccount, amount, false);
-            else if (activeType === "transfer")
-              db.vaults[targetVault] = (db.vaults[targetVault] || 0) + amount;
-            else if (activeType === "withdraw")
-              db.vaults[targetVault] = (db.vaults[targetVault] || 0) - amount;
+          const checkboxes = document.querySelectorAll(
+            'input[name="dupMonth"]:checked',
+          );
+          checkboxes.parseValues = checkboxes.forEach((cb) => {
+            const [dupM, dupY] = cb.value.split("|").map(Number);
+            let dupDate = `${String(targetDay).padStart(2, "0")}/${String(dupM + 1).padStart(2, "0")}/${dupY}`;
 
             db.transactions.unshift({
               id: Date.now() + Math.random(),
               date: dupDate,
-              month: currM,
-              year: currY,
+              month: dupM,
+              year: dupY,
               type: activeType,
               amount: amount,
               account: finalAccount,
@@ -3382,7 +3343,7 @@
               note: note + " (עותק)",
               isJointPaidPrivate: isJointPaidPrivate,
             });
-          }
+          });
         }
 
         document.getElementById("inputAmount").value = "";
@@ -4448,6 +4409,49 @@
         } else {
           fields.classList.add("hidden");
         }
+      }
+
+      function populateDuplicateMonths(baseM, baseY) {
+        const container = document.getElementById("duplicateMonthsList");
+        if (!container) return;
+
+        const mNames = [
+          "ינואר",
+          "פברואר",
+          "מרץ",
+          "אפריל",
+          "מאי",
+          "יוני",
+          "יולי",
+          "אוגוסט",
+          "ספטמבר",
+          "אוקטובר",
+          "נובמבר",
+          "דצמבר",
+        ];
+
+        let html = "";
+        let m = baseM;
+        let y = baseY;
+
+        // מציג 12 חודשים קדימה לבחירה
+        for (let i = 0; i < 12; i++) {
+          if (i > 0) {
+            m++;
+            if (m > 11) {
+              m = 0;
+              y++;
+            }
+            const monthKey = `${y}-${m}`;
+            html += `
+           <label class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer bg-zinc-900 p-2 rounded-lg border border-zinc-800">
+             <input type="checkbox" name="dupMonth" value="${m}|${y}" class="accent-emerald-500" />
+             <span>${mNames[m]} ${y}</span>
+           </label>
+         `;
+          }
+        }
+        container.innerHTML = html;
       }
     </script>
   </body>
