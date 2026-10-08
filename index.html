@@ -3320,19 +3320,26 @@
         });
 
         // בדיקה האם המשתמש ביקש לשכפל את התנועה לחודשים נבחרים
-        const isDuplicateChecked = document.getElementById("inputIsDuplicate")?.checked;
+        const isDuplicateChecked =
+          document.getElementById("inputIsDuplicate")?.checked;
         if (editingTransactionId && isDuplicateChecked) {
-          const checkboxes = document.querySelectorAll('input[name="dupMonth"]:checked');
-          
+          const checkboxes = document.querySelectorAll(
+            'input[name="dupMonth"]:checked',
+          );
+
           checkboxes.forEach((cb) => {
             const [dupM, dupY] = cb.value.split("|").map(Number);
             let dupDate = `${String(targetDay).padStart(2, "0")}/${String(dupM + 1).padStart(2, "0")}/${dupY}`;
 
             // עדכון יתרות העו"ש / קופה עבור כל עותק שנוצר
-            if (activeType === "expense") adjustAccountOrVault(finalAccount, amount, true);
-            else if (activeType === "income") adjustAccountOrVault(finalAccount, amount, false);
-            else if (activeType === "transfer") db.vaults[targetVault] = (db.vaults[targetVault] || 0) + amount;
-            else if (activeType === "withdraw") db.vaults[targetVault] = (db.vaults[targetVault] || 0) - amount;
+            if (activeType === "expense")
+              adjustAccountOrVault(finalAccount, amount, true);
+            else if (activeType === "income")
+              adjustAccountOrVault(finalAccount, amount, false);
+            else if (activeType === "transfer")
+              db.vaults[targetVault] = (db.vaults[targetVault] || 0) + amount;
+            else if (activeType === "withdraw")
+              db.vaults[targetVault] = (db.vaults[targetVault] || 0) - amount;
 
             db.transactions.unshift({
               id: Date.now() + Math.random(),
@@ -3345,7 +3352,7 @@
               category: catTitle,
               subCategory: subTitle,
               note: note + " (עותק)",
-              isJointPaidPrivate: isJointPaidPrivate,
+              isJointPaidPrivate: isJointPrivate, // <--- כאן תוקן שם המשתנה!
             });
           });
         }
@@ -4448,11 +4455,11 @@
             }
             const monthKey = `${y}-${m}`;
             html += `
-           <label class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer bg-zinc-900 p-2 rounded-lg border border-zinc-800">
-             <input type="checkbox" name="dupMonth" value="${m}|${y}" class="accent-emerald-500" />
-             <span>${mNames[m]} ${y}</span>
-           </label>
-         `;
+            <label class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer bg-zinc-900 p-2 rounded-lg border border-zinc-800">
+              <input type="checkbox" name="dupMonth" value="${m}|${y}" class="accent-emerald-500" />
+              <span>${mNames[m]} ${y}</span>
+            </label>
+          `;
           }
         }
         container.innerHTML = html;
