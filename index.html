@@ -2707,6 +2707,49 @@
         populateDropdowns();
       }
 
+      function promptSelectCategory(currentCat, callback) {
+        const modalId = "dynamicCatModal";
+        let existing = document.getElementById(modalId);
+        if (existing) existing.remove();
+
+        // מיון אלפביתי של הקטגוריות הראשיות בתפריט
+        const categories = Object.keys(db.categories).sort((a, b) =>
+          a.localeCompare(b, "he"),
+        );
+
+        const div = document.createElement("div");
+        div.id = modalId;
+        div.className =
+          "modal fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center active";
+        div.innerHTML = `
+            <div class="bg-zinc-900 w-full max-w-xs rounded-3xl p-5 space-y-4 border border-zinc-800 shadow-2xl">
+                <h3 class="font-bold text-base text-zinc-100 flex items-center gap-2">
+                    <i data-lucide="folder-tree" class="w-4 h-4 text-emerald-400"></i>
+                    בחר קטגוריה ראשית חדשה
+                </h3>
+                <select id="dynamicCatSelect" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500">
+                    ${categories.map((c) => `<option value="${c}" ${c === currentCat ? "selected" : ""}>${c}</option>`).join("")}
+                </select>
+                <div class="flex gap-2 pt-2">
+                    <button id="dynCancel" class="flex-1 bg-zinc-800 hover:bg-zinc-700 py-2.5 rounded-xl text-xs font-bold text-zinc-300 transition-all">ביטול</button>
+                    <button id="dynOk" class="flex-1 bg-emerald-600 hover:bg-emerald-500 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all">אישור</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(div);
+        if (typeof lucide !== "undefined") lucide.createIcons();
+
+        document.getElementById("dynCancel").onclick = () => {
+          div.remove();
+          callback(null);
+        };
+        document.getElementById("dynOk").onclick = () => {
+          const val = document.getElementById("dynamicCatSelect").value;
+          div.remove();
+          callback(val);
+        };
+      }
+
       function renameSubCategory(mainCat, oldSubName) {
         const newSubName = prompt(
           `הזן שם חדש לתת-קטגוריה "${oldSubName}":`,
@@ -2714,64 +2757,56 @@
         );
         if (!newSubName || newSubName.trim() === "") return;
 
-        // רשימת קטגוריות ראשיות לבחירה
-        const mainCatsList = Object.keys(db.categories);
-        let promptMsg =
-          `בחר קטגוריה ראשית חדשה לתת-קטגוריה "${newSubName.trim()}" (הקש את שם הקטגוריה בדיוק או השאר ריק כדי להשאיר ב"${mainCat}"):\n\n` +
-          mainCatsList.join(" | ");
+        promptSelectCategory(mainCat, (targetMainCat) => {
+          if (!targetMainCat) return; // בטל
 
-        let targetMainCat = prompt(promptMsg, mainCat);
-        if (targetMainCat === null) return; // בטל
-        targetMainCat = targetMainCat.trim();
-
-        if (targetMainCat === "") targetMainCat = mainCat;
-
-        if (!db.categories[targetMainCat]) {
-          return alert("שגיאה: הקטגוריה הראשית שהוזנה אינה קיימת.");
-        }
-
-        if (
-          db.categories[targetMainCat].sub.includes(newSubName.trim()) &&
-          (targetMainCat !== mainCat || newSubName.trim() !== oldSubName)
-        ) {
-          return alert("תת-קטגוריה בשם זה כבר קיימת בקטגוריה היעד.");
-        }
-
-        // 1. הסרה מהקטגוריה הישנה
-        db.categories[mainCat].sub = db.categories[mainCat].sub.filter(
-          (s) => s !== oldSubName,
-        );
-
-        // 2. הוספה לקטגוריה החדשה
-        db.categories[targetMainCat].sub.push(newSubName.trim());
-
-        // 3. עדכון תנועות קיימות
-        db.transactions.forEach((t) => {
-          if (t.category === mainCat && t.subCategory === oldSubName) {
-            t.category = targetMainCat;
-            t.subCategory = newSubName.trim();
+          if (!db.categories[targetMainCat]) {
+            return alert("שגיאה: הקטגוריה הראשית שהוזנה אינה קיימת.");
           }
-        });
 
-        // 4. עדכון תקציבים קיימים
-        if (db.monthlyBudgets) {
-          Object.keys(db.monthlyBudgets).forEach((monthKey) => {
-            const oldKey = `${mainCat}|||${oldSubName}`;
-            const newKey = `${targetMainCat}|||${newSubName.trim()}`;
-            if (db.monthlyBudgets[monthKey][oldKey] !== undefined) {
-              db.monthlyBudgets[monthKey][newKey] =
-                db.monthlyBudgets[monthKey][oldKey];
-              delete db.monthlyBudgets[monthKey][oldKey];
+          if (
+            db.categories[targetMainCat].sub.includes(newSubName.trim()) &&
+            (targetMainCat !== mainCat || newSubName.trim() !== oldSubName)
+          ) {
+            return alert("תת-קטגוריה בשם זה כבר קיימת בקטגוריה היעד.");
+          }
+
+          // 1. הסרה מהקטגוריה הישנה
+          db.categories[mainCat].sub = db.categories[mainCat].sub.filter(
+            (s) => s !== oldSubName,
+          );
+
+          // 2. הוספה לקטגוריה החדשה
+          db.categories[targetMainCat].sub.push(newSubName.trim());
+
+          // 3. עדכון תנועות קיימות
+          db.transactions.forEach((t) => {
+            if (t.category === mainCat && t.subCategory === oldSubName) {
+              t.category = targetMainCat;
+              t.subCategory = newSubName.trim();
             }
           });
-        }
 
-        addAuditLog(
-          "עריכת תת-קטגוריה והעברה",
-          `מ-${mainCat} > ${oldSubName} ל-${targetMainCat} > ${newSubName.trim()}`,
-        );
-        saveData();
-        populateDropdowns();
+          // 4. עדכון תקציבים קיימים
+          if (db.monthlyBudgets) {
+            Object.keys(db.monthlyBudgets).forEach((monthKey) => {
+              const oldKey = `${mainCat}|||${oldSubName}`;
+              const newKey = `${targetMainCat}|||${newSubName.trim()}`;
+              if (db.monthlyBudgets[monthKey][oldKey] !== undefined) {
+                db.monthlyBudgets[monthKey][newKey] =
+                  db.monthlyBudgets[monthKey][oldKey];
+                delete db.monthlyBudgets[monthKey][oldKey];
+              }
+            });
+          }
+
+          addAuditLog(
+            "עריכת תת-קטגוריה והעברה",
+            `מ-${mainCat} > ${oldSubName} ל-${targetMainCat} > ${newSubName.trim()}`,
+          );
+          saveData();
+          populateDropdowns();
+        });
       }
 
       function setType(type) {
