@@ -3318,6 +3318,7 @@
               ? "משיכה מקופה"
               : subCategory;
 
+        // שמירת התנועה המקורית (או המעודכנת)
         db.transactions.unshift({
           id: tId,
           date: originalDate,
@@ -3331,6 +3332,58 @@
           note: note,
           isJointPaidPrivate: isJointPrivate,
         });
+
+        // בדיקה האם המשתמש ביקש לשכפל את התנועה (רלוונטי רק בעריכה)
+        const isDuplicateChecked =
+          document.getElementById("inputIsDuplicate")?.checked;
+        if (editingTransactionId && isDuplicateChecked) {
+          const dupCount =
+            parseInt(document.getElementById("inputDuplicateCount").value) || 1;
+          const interval = document.getElementById(
+            "inputDuplicateInterval",
+          ).value;
+
+          let currM = tMonth;
+          let currY = tYear;
+          let currDay = targetDay;
+
+          for (let i = 0; i < dupCount; i++) {
+            if (interval === "month") {
+              currM++;
+              if (currM > 11) {
+                currM = 0;
+                currY++;
+              }
+            }
+
+            // יצירת תאריך חדש לעותק
+            let dupDate = `${String(currDay).padStart(2, "0")}/${String(currM + 1).padStart(2, "0")}/${currY}`;
+
+            // עדכון יתרות העו"ש / קופה עבור העותק החדש
+            if (activeType === "expense")
+              adjustAccountOrVault(finalAccount, amount, true);
+            else if (activeType === "income")
+              adjustAccountOrVault(finalAccount, amount, false);
+            else if (activeType === "transfer")
+              db.vaults[targetVault] = (db.vaults[targetVault] || 0) + amount;
+            else if (activeType === "withdraw")
+              db.vaults[targetVault] = (db.vaults[targetVault] || 0) - amount;
+
+            db.transactions.unshift({
+              id: Date.now() + Math.random(),
+              date: dupDate,
+              month: currM,
+              year: currY,
+              type: activeType,
+              amount: amount,
+              account: finalAccount,
+              category: catTitle,
+              subCategory: subTitle,
+              note: note + " (עותק)",
+              isJointPaidPrivate: isJointPaidPrivate,
+            });
+          }
+        }
 
         document.getElementById("inputAmount").value = "";
         document.getElementById("inputNote").value = "";
