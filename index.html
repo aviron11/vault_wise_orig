@@ -3323,10 +3323,10 @@
           const checkboxes = document.querySelectorAll(
             'input[name="dupMonth"]:checked',
           );
-          // Convert NodeList to a standard Array to prevent .forEach crashes on certain engines
-          const checkboxesArray = Array.from(checkboxes);
 
-          checkboxesArray.forEach(function (cb, index) {
+          // Using a standard for-loop to prevent NodeList iteration crashes on mobile WebViews
+          for (let i = 0; i < checkboxes.length; i++) {
+            const cb = checkboxes[i];
             const parts = cb.value.split("|");
             const dupM = parseInt(parts[0], 10);
             const dupY = parseInt(parts[1], 10);
@@ -3334,10 +3334,12 @@
             // Bulletproof string padding without relying on modern .padStart()
             let dupMonthStr = String(dupM + 1);
             if (dupMonthStr.length < 2) dupMonthStr = "0" + dupMonthStr;
-            let targetDayStr = String(targetDay);
-            if (targetDayStr.length < 2) targetDayStr = "0" + targetDayStr;
 
-            let dupDate = targetDayStr + "/" + dupMonthStr + "/" + dupY;
+            let currentTargetDayStr = String(targetDay);
+            if (currentTargetDayStr.length < 2)
+              currentTargetDayStr = "0" + currentTargetDayStr;
+
+            let dupDate = currentTargetDayStr + "/" + dupMonthStr + "/" + dupY;
 
             // עדכון יתרות העו"ש / קופה עבור כל עותק שנוצר
             if (activeType === "expense")
@@ -3350,7 +3352,7 @@
               db.vaults[targetVault] = (db.vaults[targetVault] || 0) - amount;
 
             db.transactions.unshift({
-              id: Date.now() + index + 10, // מזהה ייחודי לכל עותק
+              id: Date.now() + i + 10, // מזהה ייחודי לכל עותק
               date: dupDate,
               month: dupM,
               year: dupY,
@@ -3362,7 +3364,7 @@
               note: note + " (עותק)",
               isJointPaidPrivate: isJointPrivate,
             });
-          });
+          }
         }
 
         document.getElementById("inputAmount").value = "";
