@@ -1,0 +1,4269 @@
+<!doctype html>
+<html lang="he" dir="rtl" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>VaultWise - ניהול תקציב וחיסכון חכם</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="VaultWise" />
+    <meta name="theme-color" content="#09090b" />
+    <link
+      rel="apple-touch-icon"
+      href="https://cdn-icons-png.flaticon.com/512/2845/2845873.png"
+    />
+
+    <!-- Valid PWA Manifest Link -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: "#ecfdf5",
+                100: "#d1fae5",
+                500: "#10b981",
+                600: "#059669",
+                700: "#047857",
+              },
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Oxygen,
+          Ubuntu,
+          Cantarell,
+          sans-serif;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .modal {
+        display: none;
+      }
+      .modal.active {
+        display: flex;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      #headerMonth::-ms-expand,
+      #headerYear::-ms-expand {
+        display: none;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .sync-active {
+        animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col justify-between selection:bg-emerald-500 selection:text-white"
+  >
+    <!-- Login Screen Overlay -->
+    <div
+      id="loginScreen"
+      class="fixed inset-0 bg-zinc-950 z-50 flex items-center justify-center p-4 hidden"
+    >
+      <div
+        class="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-2xl"
+      >
+        <div class="text-center space-y-1">
+          <div
+            class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center font-black text-zinc-950 mx-auto shadow-lg shadow-emerald-950/40"
+          >
+            <i data-lucide="wallet" class="w-6 h-6 text-zinc-950"></i>
+          </div>
+          <h2 class="text-base font-bold text-zinc-100 mt-2">
+            VaultWise - התחברות
+          </h2>
+          <p class="text-xs text-zinc-400">
+            יש להזמין אימייל וסיסמה כדי לגשת לנתונים
+          </p>
+        </div>
+        <div class="space-y-3 pt-2">
+          <input
+            type="email"
+            id="loginEmail"
+            placeholder="אימייל"
+            class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+          />
+          <input
+            type="password"
+            id="loginPassword"
+            placeholder="סיסמה"
+            class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+          />
+          <button
+            onclick="loginUser()"
+            class="w-full bg-emerald-600 hover:bg-emerald-500 py-3 rounded-xl font-bold text-white text-xs shadow-lg shadow-emerald-950/50 transition-all"
+          >
+            התחבר למערכת
+          </button>
+          <div
+            id="loginError"
+            class="text-xs text-rose-500 text-center font-medium"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Header -->
+    <header
+      class="bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800/80 p-3 sticky top-0 z-30 flex items-center justify-between"
+    >
+      <div class="flex items-center space-x-2 space-x-reverse">
+        <div
+          class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center font-black text-zinc-950 shadow-lg shadow-emerald-950/40"
+        >
+          <i data-lucide="wallet" class="w-5 h-5 text-zinc-950"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-1">
+            <span
+              class="font-black text-sm tracking-wide text-zinc-100 block leading-none"
+              >VaultWise</span
+            >
+            <div
+              id="cloudStatus"
+              class="w-2 h-2 rounded-full bg-rose-500"
+              title="מצב חיבור לענן"
+            ></div>
+          </div>
+          <span class="text-[10px] text-zinc-400"
+            >ניהול פיננסי חכם בסנכרון</span
+          >
+        </div>
+      </div>
+
+      <!-- Month Navigation (Interactive Selectors) -->
+      <div
+        class="flex items-center bg-zinc-800/80 border border-zinc-700/50 rounded-xl px-1 py-1 text-xs font-semibold shadow-inner"
+      >
+        <button
+          onclick="changeMonth(-1)"
+          class="p-1.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+          title="חודש קודם"
+        >
+          <i
+            data-lucide="chevron-right"
+            class="w-4 h-4 pointer-events-none"
+          ></i>
+        </button>
+        <div class="flex items-center justify-center gap-1 px-2 min-w-[100px]">
+          <select
+            id="headerMonth"
+            style="text-align-last: center"
+            class="appearance-none bg-transparent text-zinc-200 font-bold focus:outline-none text-center cursor-pointer hover:text-emerald-400 transition-colors"
+            onchange="jumpToDate()"
+          ></select>
+          <select
+            id="headerYear"
+            style="text-align-last: center"
+            class="appearance-none bg-transparent text-zinc-200 font-bold focus:outline-none text-center cursor-pointer hover:text-emerald-400 transition-colors"
+            onchange="jumpToDate()"
+          ></select>
+        </div>
+        <button
+          onclick="changeMonth(1)"
+          class="p-1.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+          title="חודש הבא"
+        >
+          <i data-lucide="chevron-left" class="w-4 h-4 pointer-events-none"></i>
+        </button>
+      </div>
+
+      <!-- Excel Export -->
+      <button
+        id="btnExportExcel"
+        onclick="exportToExcel()"
+        class="bg-zinc-800 hover:bg-emerald-600 hover:text-white text-zinc-300 border border-zinc-700/60 active:scale-95 transition-all text-xs px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 shadow-sm"
+      >
+        <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i>
+        <span class="hidden sm:inline">ייצוא אקסל</span>
+      </button>
+    </header>
+
+    <!-- Main View Area -->
+    <main
+      class="flex-1 overflow-y-auto p-4 pb-28 space-y-5 max-w-lg mx-auto w-full no-scrollbar"
+    >
+      <!-- TAB 1: TRANSACTIONS & DASHBOARD -->
+      <div id="tab-trans" class="tab-content active space-y-4">
+        <!-- Magic Quick-Add Bar -->
+        <section
+          class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-2 shadow-md mb-4"
+        >
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              id="quickAddInput"
+              onkeypress="if (event.key === 'Enter') processQuickAdd();"
+              placeholder="למשל: בר 150 24 או ים אוריין 50"
+              class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+            />
+            <button
+              onclick="processQuickAdd()"
+              class="bg-emerald-600 hover:bg-emerald-500 w-12 h-12 flex items-center justify-center rounded-xl text-white shadow-md active:scale-95 transition-all"
+            >
+              <i data-lucide="zap" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </section>
+
+        <!-- Bank Accounts Card Grid with Income, Expense & Balance -->
+        <section
+          class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 shadow-md"
+        >
+          <div class="flex justify-between items-center mb-3">
+            <h2
+              class="text-xs uppercase tracking-wider text-zinc-400 font-bold flex items-center gap-1.5"
+            >
+              <i
+                data-lucide="landmark"
+                class="w-3.5 h-3.5 text-emerald-400"
+              ></i>
+              <span>תזרים חשבונות (חודש זה)</span>
+            </h2>
+            <span class="text-[11px] text-zinc-500" id="totalBankBalance"
+              >מאזן נטו: 0 ₪</span
+            >
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-center">
+            <!-- אבירון -->
+            <div
+              class="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/60 space-y-1"
+            >
+              <div
+                class="text-xs font-bold text-zinc-300 border-b border-zinc-800/60 pb-1"
+              >
+                אבירון (פרטי)
+              </div>
+              <div class="flex justify-between text-[11px]">
+                <span class="text-zinc-500">הכנסות:</span
+                ><span id="incomeAviron" class="text-emerald-400 font-medium"
+                  >0 ₪</span
+                >
+              </div>
+              <div class="flex justify-between text-[11px]">
+                <span class="text-zinc-500">הוצאות:</span
+                ><span id="expenseAviron" class="text-rose-400 font-medium"
+                  >0 ₪</span
+                >
+              </div>
+              <div
+                class="flex justify-between text-[11px] pt-1 border-t border-zinc-900 font-bold"
+              >
+                <span class="text-zinc-400">מאזן:</span
+                ><span id="balanceAviron" class="text-zinc-100">0 ₪</span>
+              </div>
+            </div>
+            <!-- אוריין -->
+            <div
+              class="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/60 space-y-1"
+            >
+              <div
+                class="text-xs font-bold text-zinc-300 border-b border-zinc-800/60 pb-1"
+              >
+                אוריין (פרטי)
+              </div>
+              <div class="flex justify-between text-[11px]">
+                <span class="text-zinc-500">הכנסות:</span
+                ><span id="incomeOrian" class="text-emerald-400 font-medium"
+                  >0 ₪</span
+                >
+              </div>
+              <div class="flex justify-between text-[11px]">
+                <span class="text-zinc-500">הוצאות:</span
+                ><span id="expenseOrian" class="text-rose-400 font-medium"
+                  >0 ₪</span
+                >
+              </div>
+              <div
+                class="flex justify-between text-[11px] pt-1 border-t border-zinc-900 font-bold"
+              >
+                <span class="text-zinc-400">מאזן:</span
+                ><span id="balanceOrian" class="text-zinc-100">0 ₪</span>
+              </div>
+            </div>
+            <!-- משותף -->
+            <div
+              class="bg-zinc-950/80 p-3 rounded-xl border border-emerald-900/40 bg-emerald-950/10 space-y-1"
+            >
+              <div
+                class="text-xs font-bold text-emerald-400 border-b border-emerald-900/30 pb-1"
+              >
+                חשבון משותף
+              </div>
+              <div class="flex justify-between text-[11px]">
+                <span class="text-zinc-500">הכנסות:</span
+                ><span id="incomeJoint" class="text-emerald-400 font-medium"
+                  >0 ₪</span
+                >
+              </div>
+              <div class="flex justify-between text-[11px]">
+                <span class="text-zinc-500">הוצאות:</span
+                ><span id="expenseJoint" class="text-rose-400 font-medium"
+                  >0 ₪</span
+                >
+              </div>
+              <div
+                class="flex justify-between text-[11px] pt-1 border-t border-emerald-950 font-bold"
+              >
+                <span class="text-emerald-400/80">מאזן:</span
+                ><span id="balanceJoint" class="text-emerald-400">0 ₪</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Vaults (Savings) - Collapsible -->
+        <section
+          class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 shadow-md"
+        >
+          <div
+            class="flex justify-between items-center cursor-pointer select-none"
+            onclick="toggleSection('vaultsContent', 'vaultsIcon')"
+          >
+            <h2
+              class="text-xs uppercase tracking-wider text-zinc-400 font-bold flex items-center gap-1.5"
+            >
+              <i
+                data-lucide="piggy-bank"
+                class="w-3.5 h-3.5 text-amber-400"
+              ></i>
+              <span>קופות חיסכון (צבירה)</span>
+            </h2>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-zinc-500" id="totalVaultsBalance"
+                >סך הכל: 0 ₪</span
+              >
+              <i
+                data-lucide="chevron-up"
+                id="vaultsIcon"
+                class="w-4 h-4 text-zinc-500 transition-transform duration-300"
+              ></i>
+            </div>
+          </div>
+          <div id="vaultsContent" class="mt-3">
+            <div id="vaultsList" class="space-y-2"></div>
+          </div>
+        </section>
+
+        <!-- Monthly Budget Progress - Collapsible -->
+        <section
+          class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 shadow-md"
+        >
+          <div
+            class="flex justify-between items-center cursor-pointer select-none"
+            onclick="toggleSection('budgetContent', 'budgetIcon')"
+          >
+            <h2
+              class="text-xs uppercase tracking-wider text-zinc-400 font-bold flex items-center gap-1.5"
+            >
+              <i data-lucide="target" class="w-3.5 h-3.5 text-blue-400"></i>
+              <span>תקציב פעיל</span>
+            </h2>
+            <div
+              class="flex items-center gap-2"
+              onclick="event.stopPropagation()"
+            >
+              <i
+                data-lucide="chevron-up"
+                id="budgetIcon"
+                class="w-4 h-4 text-zinc-500 transition-transform duration-300"
+                onclick="toggleSection('budgetContent', 'budgetIcon')"
+              ></i>
+            </div>
+          </div>
+          <div id="budgetContent" class="mt-3">
+            <div id="budgetProgressList" class="space-y-3"></div>
+          </div>
+        </section>
+
+        <!-- Transactions Log - Collapsible -->
+        <section
+          class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 shadow-md"
+        >
+          <div
+            class="flex justify-between items-center cursor-pointer select-none pb-2 border-b border-zinc-800/60"
+            onclick="toggleSection('transContent', 'transIcon')"
+          >
+            <h2
+              class="text-xs uppercase tracking-wider text-zinc-400 font-bold flex items-center gap-1.5"
+            >
+              <i data-lucide="receipt" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>תנועות לחודש זה</span>
+            </h2>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-zinc-500 font-medium" id="transCount"
+                >0 תנועות</span
+              >
+              <i
+                data-lucide="chevron-up"
+                id="transIcon"
+                class="w-4 h-4 text-zinc-500 transition-transform duration-300"
+              ></i>
+            </div>
+          </div>
+
+          <!-- שורת כלים תחתונה בגריד מדויק (מתאים בדיוק למסכי טלפון) -->
+          <div
+            class="grid grid-cols-3 gap-1.5 pt-2.5 w-full"
+            onclick="event.stopPropagation()"
+          >
+            <select
+              id="filterTransactions"
+              onchange="updateUI()"
+              class="bg-zinc-800 text-[10px] text-zinc-300 border border-zinc-700/50 rounded-lg px-1.5 py-2 focus:outline-none cursor-pointer w-full text-center truncate"
+            >
+              <option value="all">כל הקטגוריות</option>
+            </select>
+            <select
+              id="sortTransactions"
+              onchange="changeSort()"
+              class="bg-zinc-800 text-[10px] text-zinc-300 border border-zinc-700/50 rounded-lg px-1.5 py-2 focus:outline-none cursor-pointer w-full text-center truncate"
+            >
+              <option value="date">מיון: תאריך</option>
+              <option value="amount">מיון: סכום</option>
+            </select>
+            <button
+              onclick="toggleJointPrivateSummary()"
+              class="bg-zinc-800 hover:bg-zinc-700 text-[10px] text-amber-400 border border-amber-700/50 rounded-lg px-1 py-2 transition-colors flex items-center justify-center gap-1 w-full truncate"
+              title="הצג סיכום הוצאות משותפות מחשבונות פרטיים"
+            >
+              <i data-lucide="users" class="w-3 h-3 flex-shrink-0"></i>
+              <span class="truncate">משותף מפרטי</span>
+            </button>
+          </div>
+
+          <div id="transContent" class="mt-3">
+            <div
+              id="jointPrivateSummaryBox"
+              class="hidden bg-amber-950/20 border border-amber-800/40 rounded-xl p-3 mb-3 text-xs text-zinc-200 space-y-1.5 shadow-inner"
+            >
+              <div
+                class="font-bold text-amber-400 flex items-center justify-between border-b border-amber-800/30 pb-1.5"
+              >
+                <span>סיכום הוצאות משותפות מחשבונות פרטיים (חודש זה):</span>
+                <button
+                  onclick="toggleJointPrivateSummary()"
+                  class="text-zinc-400 hover:text-white"
+                >
+                  &times;
+                </button>
+              </div>
+              <div class="flex justify-between items-center pt-1">
+                <span class="text-zinc-300">אבירון (פרטי):</span>
+                <span id="sumAvironJoint" class="font-bold text-amber-300"
+                  >0 ₪</span
+                >
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-zinc-300">אוריין (פרטי):</span>
+                <span id="sumOrianJoint" class="font-bold text-amber-300"
+                  >0 ₪</span
+                >
+              </div>
+            </div>
+            <div id="transactionsList" class="space-y-2"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- TAB 2: ANALYTICS & CHARTS -->
+      <div id="tab-charts" class="tab-content space-y-4">
+        <section class="grid grid-cols-2 gap-2">
+          <div
+            class="bg-zinc-900 border border-zinc-800/80 p-3.5 rounded-2xl shadow-sm"
+          >
+            <div class="text-[11px] text-zinc-400 font-medium">
+              הכנסות החודש
+            </div>
+            <div
+              id="kpiIncome"
+              class="text-base font-bold text-emerald-400 mt-1"
+            >
+              0 ₪
+            </div>
+          </div>
+          <div
+            class="bg-zinc-900 border border-zinc-800/80 p-3.5 rounded-2xl shadow-sm"
+          >
+            <div class="text-[11px] text-zinc-400 font-medium">
+              הוצאות החודש
+            </div>
+            <div id="kpiExpense" class="text-base font-bold text-rose-400 mt-1">
+              0 ₪
+            </div>
+          </div>
+          <div
+            class="bg-zinc-900 border border-zinc-800/80 p-3.5 rounded-2xl shadow-sm"
+          >
+            <div class="text-[11px] text-zinc-400 font-medium">
+              חיסכון נטו החודש
+            </div>
+            <div id="kpiSavings" class="text-base font-bold text-blue-400 mt-1">
+              0 ₪
+            </div>
+          </div>
+          <div
+            class="bg-zinc-900 border border-zinc-800/80 p-3.5 rounded-2xl shadow-sm"
+          >
+            <div class="text-[11px] text-zinc-400 font-medium">
+              הוצאה מובילה
+            </div>
+            <div
+              id="kpiTopCategory"
+              class="text-xs font-bold text-amber-400 mt-1 truncate"
+            >
+              -
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-md"
+        >
+          <h2
+            class="text-xs uppercase tracking-wider text-zinc-400 font-bold flex items-center gap-1.5"
+          >
+            <i data-lucide="pie-chart" class="w-3.5 h-3.5 text-purple-400"></i>
+            <span>התפלגות הוצאות לפי קטגוריה</span>
+          </h2>
+          <div class="relative h-60 w-full flex justify-center items-center">
+            <canvas id="chartCategoryDoughnut"></canvas>
+          </div>
+        </section>
+
+        <section
+          class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-md"
+        >
+          <h2
+            class="text-xs uppercase tracking-wider text-zinc-400 font-bold flex items-center gap-1.5"
+          >
+            <i
+              data-lucide="bar-chart-3"
+              class="w-3.5 h-3.5 text-emerald-400"
+            ></i>
+            <span>הכנסות מול הוצאות והפקדות לקופות</span>
+          </h2>
+          <div class="relative h-52 w-full">
+            <canvas id="chartIncomeExpenseBar"></canvas>
+          </div>
+        </section>
+
+        <section
+          class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-md"
+        >
+          <h2
+            class="text-xs uppercase tracking-wider text-zinc-400 font-bold flex items-center gap-1.5"
+          >
+            <i data-lucide="trending-up" class="w-3.5 h-3.5 text-rose-400"></i>
+            <span>מגמת הוצאות (6 חודשים אחרונים)</span>
+          </h2>
+          <div class="relative h-52 w-full">
+            <canvas id="chartTrendLine"></canvas>
+          </div>
+        </section>
+      </div>
+
+      <!-- TAB 3: SETTINGS & MANAGEMENT -->
+      <div id="tab-settings" class="tab-content">
+        <!-- Sub Navigation for Settings -->
+        <div
+          class="flex bg-zinc-900/90 rounded-xl p-1 border border-zinc-800/80 mb-4 shadow-sm"
+        >
+          <button
+            onclick="switchSettingsTab('cats')"
+            id="subnav-cats"
+            class="flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg bg-zinc-800 text-zinc-100 shadow-sm transition-all"
+          >
+            קטגוריות ותקציבים
+          </button>
+          <button
+            onclick="switchSettingsTab('vaults')"
+            id="subnav-vaults"
+            class="flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg text-zinc-400 hover:text-zinc-200 transition-all"
+          >
+            קופות חיסכון
+          </button>
+          <button
+            onclick="switchSettingsTab('data')"
+            id="subnav-data"
+            class="flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg text-zinc-400 hover:text-zinc-200 transition-all"
+          >
+            גיבוי ונתונים
+          </button>
+        </div>
+
+        <!-- SETTINGS: Categories & Budgets -->
+        <div id="set-cats" class="settings-section block space-y-4">
+          <section
+            class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 space-y-4 shadow-md"
+          >
+            <h2 class="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <i data-lucide="folder-tree" class="w-4 h-4 text-emerald-400"></i>
+              <span>ניהול קטגוריות ותקציבים</span>
+            </h2>
+
+            <!-- הוספת תקציב חודשי -->
+            <div
+              class="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/80 space-y-3"
+            >
+              <h3
+                class="text-xs font-bold text-zinc-300 border-b border-zinc-800/80 pb-2"
+              >
+                הגדרת תקציב למעקב
+              </h3>
+
+              <select
+                id="budgetSelectCat"
+                onchange="onBudgetMainCatChange()"
+                class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+              ></select>
+              <select
+                id="budgetSelectSubCat"
+                class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="">כללי (כל הקטגוריה הראשית)</option>
+              </select>
+              <input
+                type="number"
+                id="inputCatBudget"
+                placeholder="תקציב בש״ח (למשל: 1500)"
+                class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+              />
+
+              <div class="flex gap-2 pt-2 border-t border-zinc-800/60 mt-2">
+                <div class="flex-1">
+                  <label class="text-[10px] text-zinc-400 block mb-1"
+                    >החל מחודש:</label
+                  >
+                  <select
+                    id="budgetStartMonth"
+                    class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  ></select>
+                </div>
+                <div class="flex-1">
+                  <label class="text-[10px] text-zinc-400 block mb-1"
+                    >שנה:</label
+                  >
+                  <select
+                    id="budgetStartYear"
+                    class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  ></select>
+                </div>
+              </div>
+
+              <div class="flex gap-2 pt-2">
+                <div class="flex-1">
+                  <label class="text-[10px] text-zinc-400 block mb-1"
+                    >עד חודש (כולל):</label
+                  >
+                  <select
+                    id="budgetEndMonth"
+                    class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="none" selected>ללא הגבלה</option>
+                  </select>
+                </div>
+                <div class="flex-1">
+                  <label class="text-[10px] text-zinc-400 block mb-1"
+                    >שנת סיום:</label
+                  >
+                  <select
+                    id="budgetEndYear"
+                    class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="none" selected>-</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="space-y-2 pt-2 border-t border-zinc-800/60 mt-2">
+                <label
+                  class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    id="budgetOverridePast"
+                    checked
+                    class="accent-emerald-500"
+                  />
+                  <span
+                    >מחק תאריכי עבר לקטגוריה זו (מונע כפילויות אם שינית
+                    תאריך)</span
+                  >
+                </label>
+              </div>
+
+              <button
+                onclick="saveCategoryBudget()"
+                class="w-full bg-emerald-600 hover:bg-emerald-500 transition-all py-2 rounded-lg text-xs font-bold text-white shadow-md mt-2"
+              >
+                שמור / עדכן תקציב
+              </button>
+            </div>
+
+            <!-- רשימת תקציבים פעילים -->
+            <div class="space-y-2 pt-2 border-t border-zinc-800/60">
+              <h3
+                class="text-xs font-bold text-zinc-400 flex items-center gap-1.5"
+              >
+                <i data-lucide="target" class="w-3.5 h-3.5"></i> תקציבים פעילים
+                (בחודש הנצפה):
+              </h3>
+              <div id="budgetsManagerList" class="space-y-2"></div>
+
+              <!-- NEW BUTTON ADDED HERE -->
+              <button
+                onclick="openAllBudgetsModal()"
+                class="w-full mt-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 py-2.5 rounded-xl text-xs font-bold transition-all border border-zinc-700/50 shadow-sm flex justify-center items-center gap-2"
+              >
+                <i data-lucide="list" class="w-4 h-4"></i>
+                הצג חלון עם כל התקציבים המוגדרים
+              </button>
+            </div>
+
+            <!-- הוספת קטגוריות -->
+            <div class="pt-4 border-t border-zinc-800/60 space-y-4">
+              <div
+                class="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/80 space-y-2.5"
+              >
+                <h3 class="text-xs font-bold text-zinc-300">
+                  הוספת קטגוריה ראשית חדשה
+                </h3>
+                <input
+                  type="text"
+                  id="inputNewMainCatName"
+                  placeholder="שם הקטגוריה (למשל: לימודים 🎓)"
+                  class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  onclick="addNewMainCategory()"
+                  class="w-full bg-emerald-600 hover:bg-emerald-500 py-2 rounded-lg text-xs font-bold text-white transition-all shadow-md"
+                >
+                  + הוסף קטגוריה ראשית
+                </button>
+              </div>
+
+              <div
+                class="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/80 space-y-2.5"
+              >
+                <h3 class="text-xs font-bold text-zinc-300">
+                  הוספת תת-קטגוריה
+                </h3>
+                <select
+                  id="settingSelectMainCat"
+                  class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                ></select>
+                <input
+                  type="text"
+                  id="inputNewSubCat"
+                  placeholder="שם תת-קטגוריה חדשה"
+                  class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  onclick="addNewSubCategory()"
+                  class="w-full bg-zinc-800 hover:bg-zinc-700 py-2 rounded-lg text-xs font-bold text-zinc-200 border border-zinc-700/50"
+                >
+                  הוסף תת-קטגוריה
+                </button>
+              </div>
+            </div>
+
+            <div class="space-y-2 pt-4 border-t border-zinc-800/60">
+              <h3
+                class="text-xs font-bold text-zinc-400 flex items-center gap-1.5"
+              >
+                <i data-lucide="folder-tree" class="w-3.5 h-3.5"></i> ניהול
+                קטגוריות קיימות (לחץ למחיקה):
+              </h3>
+              <div id="categoriesManagerList" class="space-y-2"></div>
+            </div>
+          </section>
+        </div>
+
+        <!-- SETTINGS: Vaults -->
+        <div id="set-vaults" class="settings-section hidden space-y-4">
+          <section
+            class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-md"
+          >
+            <h2 class="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <i data-lucide="piggy-bank" class="w-4 h-4 text-amber-400"></i>
+              <span>ניהול קופות חיסכון</span>
+            </h2>
+            <div
+              class="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/80 space-y-2"
+            >
+              <input
+                type="text"
+                id="inputNewVaultName"
+                placeholder="שם קופה חדשה (למשל: חופשה, רכב)"
+                class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                onclick="addNewVault()"
+                class="w-full bg-emerald-600 hover:bg-emerald-500 transition-all py-2 rounded-lg text-xs font-bold text-white shadow-md"
+              >
+                + הוסף קופה
+              </button>
+            </div>
+            <div class="text-[10px] text-zinc-500 mb-1 leading-tight px-1">
+              * מחיקת קופה תחזיר את כל הכספים שבה בחזרה לחשבונות המקור באופן
+              אוטומטי ותאפס את ההיסטוריה.
+            </div>
+            <div id="vaultsManagerList" class="space-y-2"></div>
+          </section>
+
+          <section
+            class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-md"
+          >
+            <h2 class="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <i data-lucide="repeat" class="w-4 h-4 text-blue-400"></i>
+              <span>העברות אוטומטיות חודשיות לקופות</span>
+            </h2>
+            <div
+              class="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/80 space-y-3 text-xs text-zinc-300"
+            >
+              <input
+                type="number"
+                id="inputAutoTransferAmount"
+                placeholder="סכום להפקדה (₪)"
+                class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+              />
+              <select
+                id="selectAutoTransferVault"
+                class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+              ></select>
+
+              <div class="flex gap-2 pt-1 border-t border-zinc-800/60 mt-2">
+                <div class="flex-1">
+                  <label class="text-[10px] text-zinc-400 block mb-1"
+                    >החל מחודש:</label
+                  >
+                  <select
+                    id="autoTransferStartMonth"
+                    class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  ></select>
+                </div>
+                <div class="flex-1">
+                  <label class="text-[10px] text-zinc-400 block mb-1"
+                    >שנה:</label
+                  >
+                  <select
+                    id="autoTransferStartYear"
+                    class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  ></select>
+                </div>
+              </div>
+
+              <button
+                onclick="addAutoTransfer()"
+                class="w-full bg-blue-600 hover:bg-blue-500 transition-all py-2 rounded-lg font-bold text-white shadow-md"
+              >
+                + הוסף העברה אוטומטית
+              </button>
+            </div>
+            <div id="autoTransfersList" class="space-y-2"></div>
+          </section>
+        </div>
+
+        <!-- SETTINGS: Data Backup -->
+        <div id="set-data" class="settings-section hidden space-y-4">
+          <section
+            class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-md"
+          >
+            <h2 class="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <i data-lucide="database" class="w-4 h-4 text-blue-400"></i>
+              <span>קובץ גיבוי וייבוא</span>
+            </h2>
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <button
+                onclick="exportBackupJSON()"
+                class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-2.5 rounded-lg text-xs font-bold transition-all border border-zinc-700/50 flex justify-center items-center gap-2"
+              >
+                <i data-lucide="download" class="w-4 h-4"></i>
+                שמור למכשיר
+              </button>
+              <button
+                onclick="document.getElementById('importBackupFile').click()"
+                class="bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg text-xs font-bold transition-all shadow-md flex justify-center items-center gap-2"
+              >
+                <i data-lucide="upload" class="w-4 h-4"></i>
+                טען מקובץ לענן
+              </button>
+              <input
+                type="file"
+                id="importBackupFile"
+                accept=".json"
+                class="hidden"
+                onchange="importBackupJSON(event)"
+              />
+            </div>
+            <button
+              onclick="logoutUser()"
+              class="w-full bg-rose-600/20 border border-rose-800/50 hover:bg-rose-900/40 text-rose-300 py-2.5 rounded-lg text-xs font-bold transition-all flex justify-center items-center gap-2 mt-2"
+            >
+              <i data-lucide="log-out" class="w-4 h-4"></i>
+              התנתק מהמערכת
+            </button>
+          </section>
+          <section
+            class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-md mt-4"
+          >
+            <h2 class="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <i
+                data-lucide="message-circle"
+                class="w-4 h-4 text-emerald-400"
+              ></i>
+              <span>ייבוא חכם מוואטסאפ</span>
+            </h2>
+            <p class="text-[10px] text-zinc-400">
+              העתק את היסטוריית הצ'אט מוואטסאפ (טקסט מלא) והדבק כאן. המערכת תסנן
+              הודעות, תזהה סכומים, מי שילם, ותסווג לקטגוריות.
+            </p>
+            <div class="space-y-2 pt-1">
+              <textarea
+                id="whatsappInput"
+                rows="4"
+                placeholder="10/5/26, 09:20 - אוריין: *זו סטור 481..."
+                class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+              ></textarea>
+              <button
+                onclick="importFromWhatsApp()"
+                class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                <i data-lucide="bot" class="w-4 h-4"></i>
+                קרא וייבא תנועות אוטומטית
+              </button>
+            </div>
+          </section>
+          <section
+            class="bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-md mt-4"
+          >
+            <h2 class="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <i
+                data-lucide="clipboard-list"
+                class="w-4 h-4 text-amber-400"
+              ></i>
+              <span>יומן פעולות (Audit) לחודש הנצפה</span>
+            </h2>
+            <div
+              id="auditLogsContainer"
+              class="space-y-2 max-h-60 overflow-y-auto no-scrollbar text-xs"
+            >
+              <!-- Logs populated by JS -->
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <button
+      onclick="openModalFor('expense')"
+      class="fixed bottom-16 left-1/2 -translate-x-1/2 bg-gradient-to-tr from-emerald-600 to-teal-500 text-zinc-950 rounded-full p-4 shadow-xl shadow-emerald-950/60 border-2 border-zinc-950 z-40 active:scale-90 transition-transform"
+    >
+      <i data-lucide="plus" class="w-6 h-6 stroke-[3]"></i>
+    </button>
+
+    <nav
+      class="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800/80 flex justify-around py-2.5 z-30 max-w-lg mx-auto"
+    >
+      <button
+        onclick="switchTab('trans')"
+        id="nav-trans"
+        class="flex flex-col items-center text-emerald-400 text-xs font-medium"
+      >
+        <i data-lucide="receipt" class="w-5 h-5 mb-0.5"></i>
+        <span>תנועות</span>
+      </button>
+      <button
+        onclick="switchTab('charts')"
+        id="nav-charts"
+        class="flex flex-col items-center text-zinc-400 hover:text-zinc-200 text-xs font-medium"
+      >
+        <i data-lucide="pie-chart" class="w-5 h-5 mb-0.5"></i>
+        <span>גרפים</span>
+      </button>
+      <button
+        onclick="switchTab('settings')"
+        id="nav-settings"
+        class="flex flex-col items-center text-zinc-400 hover:text-zinc-200 text-xs font-medium"
+      >
+        <i data-lucide="settings" class="w-5 h-5 mb-0.5"></i>
+        <span>הגדרות</span>
+      </button>
+    </nav>
+
+    <!-- Modal -->
+    <div
+      id="addModal"
+      class="modal fixed inset-0 bg-black/80 backdrop-blur-sm z-50 items-end justify-center"
+    >
+      <div
+        class="bg-zinc-900 w-full max-w-lg rounded-t-3xl p-5 space-y-4 border-t border-zinc-800 max-h-[90vh] overflow-y-auto no-scrollbar shadow-2xl"
+      >
+        <div
+          class="flex justify-between items-center border-b border-zinc-800/80 pb-3"
+        >
+          <h3 class="font-bold text-base text-zinc-100" id="modalTitle">
+            הוספת תנועה חדשה
+          </h3>
+          <button
+            onclick="toggleModal(false)"
+            class="text-zinc-400 hover:text-white text-xl p-1"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div
+          class="grid grid-cols-4 gap-1.5 text-[11px] p-1 bg-zinc-950 rounded-xl border border-zinc-800/80"
+        >
+          <button
+            type="button"
+            onclick="setType('expense')"
+            id="btnExpense"
+            class="py-2 font-bold rounded-lg bg-rose-600 text-white transition-all"
+          >
+            הוצאה
+          </button>
+          <button
+            type="button"
+            onclick="setType('income')"
+            id="btnIncome"
+            class="py-2 font-bold rounded-lg text-zinc-400 transition-all"
+          >
+            הכנסה
+          </button>
+          <button
+            type="button"
+            onclick="setType('transfer')"
+            id="btnTransfer"
+            class="py-2 font-bold rounded-lg text-zinc-400 transition-all"
+          >
+            הפקדה
+          </button>
+          <button
+            type="button"
+            onclick="setType('withdraw')"
+            id="btnWithdraw"
+            class="py-2 font-bold rounded-lg text-zinc-400 transition-all"
+          >
+            משיכה
+          </button>
+        </div>
+
+        <div class="space-y-3.5">
+          <div>
+            <label class="text-xs text-zinc-400 block mb-1 font-medium"
+              >סכום (₪)</label
+            >
+            <input
+              type="number"
+              id="inputAmount"
+              placeholder="0"
+              class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-left text-xl font-black text-emerald-400 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label
+              class="text-xs text-zinc-400 block mb-1 font-medium"
+              id="labelAccount"
+              >מאיזה חשבון / קופה משלמים?</label
+            >
+            <select
+              id="selectAccount"
+              class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+            ></select>
+          </div>
+
+          <div>
+            <label class="text-xs text-zinc-400 block mb-1 font-medium"
+              >תאריך התנועה</label
+            >
+            <div class="flex gap-2">
+              <input
+                type="number"
+                id="inputDay"
+                placeholder="יום (1-31)"
+                min="1"
+                max="31"
+                class="w-1/3 bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500 text-center"
+              />
+              <select
+                id="inputMonth"
+                class="w-1/3 bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500 text-center appearance-none"
+                style="text-align-last: center"
+              ></select>
+              <select
+                id="inputYear"
+                class="w-1/3 bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500 text-center appearance-none"
+                style="text-align-last: center"
+              ></select>
+            </div>
+          </div>
+
+          <div id="catGroup" class="space-y-3">
+            <div>
+              <label class="text-xs text-zinc-400 block mb-1 font-medium"
+                >קטגוריה ראשית</label
+              >
+              <select
+                id="selectCategory"
+                onchange="onMainCategoryChange()"
+                class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+              ></select>
+            </div>
+            <div>
+              <label class="text-xs text-zinc-400 block mb-1 font-medium"
+                >תת-קטגוריה</label
+              >
+              <select
+                id="selectSubCategory"
+                class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+              ></select>
+            </div>
+          </div>
+
+          <div id="vaultGroup" class="hidden">
+            <label
+              class="text-xs text-zinc-400 block mb-1 font-medium"
+              id="labelVault"
+              >בחר קופה</label
+            >
+            <select
+              id="selectTargetVault"
+              class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+            ></select>
+          </div>
+
+          <div>
+            <label class="text-xs text-zinc-400 block mb-1 font-medium"
+              >הערות / פירוט נוסף</label
+            >
+            <input
+              type="text"
+              id="inputNote"
+              placeholder="לדוגמה: קניות לשבת..."
+              class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+          <div id="jointPaidPrivateGroup" class="hidden">
+            <label
+              class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer mt-1"
+            >
+              <input
+                type="checkbox"
+                id="inputJointPaidPrivate"
+                class="accent-emerald-500"
+              />
+              <span>סמן כהוצאה משותפת (יוקזז מחשבון פרטי)</span>
+            </label>
+          </div>
+        </div>
+
+        <button
+          onclick="saveTransaction()"
+          class="w-full bg-emerald-600 hover:bg-emerald-500 py-3.5 rounded-xl font-bold text-white text-sm shadow-lg shadow-emerald-950/50 active:scale-[0.98] transition-all"
+        >
+          שמור תנועה
+        </button>
+      </div>
+    </div>
+    <!-- All Budgets Modal Window -->
+    <div
+      id="allBudgetsModal"
+      class="modal fixed inset-0 bg-black/80 backdrop-blur-sm z-50 items-center justify-center"
+    >
+      <div
+        class="bg-zinc-900 w-full max-w-xs sm:max-w-sm rounded-3xl p-5 space-y-4 border border-zinc-800 shadow-2xl relative"
+      >
+        <div
+          class="flex justify-between items-center border-b border-zinc-800/80 pb-3"
+        >
+          <h3 class="font-bold text-base text-zinc-100 flex items-center gap-2">
+            <i data-lucide="target" class="w-4 h-4 text-emerald-400"></i>
+            כל התקציבים במערכת
+          </h3>
+          <button
+            onclick="closeAllBudgetsModal()"
+            class="text-zinc-400 hover:text-white text-2xl leading-none p-1"
+          >
+            &times;
+          </button>
+        </div>
+        <div
+          id="allBudgetsList"
+          class="space-y-2 max-h-[60vh] overflow-y-auto no-scrollbar"
+        >
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <script>
+      lucide.createIcons();
+
+      const firebaseConfig = {
+        apiKey: "__FIREBASE_API_KEY__",
+        authDomain: "__FIREBASE_AUTH_DOMAIN__",
+        projectId: "__FIREBASE_PROJECT_ID__",
+        storageBucket: "__FIREBASE_STORAGE_BUCKET__",
+        messagingSenderId: "__FIREBASE_MESSAGING_SENDER_ID__",
+        appId: "__FIREBASE_APP_ID__"
+      };
+
+      const defaultCategories = {
+        "הוצאות בית 🏠": {
+          sub: [
+            "מכשירי חשמל",
+            "ריהוט 🪑",
+            "מטבח 🍽",
+            "אינסטלציה 🚽",
+            "גינה 🪴",
+            "סופר 🛒",
+            "ניקיון ✨",
+            "תחזוקה שוטפת",
+            "שליפציקים",
+            "ביטוח דירה",
+          ],
+        },
+        "חשבונות 🧾": {
+          sub: [
+            "מים 💧",
+            "גז 💨",
+            "חשמל ⚡",
+            "שכר דירה 🏡",
+            "ארנונה 🏛",
+            "ועד בית 🧹",
+            "נטפליקס 📺",
+            "טלפון 📱",
+            "אינטרנט 🌐",
+          ],
+        },
+        "אוכל בחוץ 🍜": {
+          sub: ["צהריים", "ערב", "מסעדות", "משקאות", "הזמנות"],
+        },
+        "חיות מחמד 🐶": { sub: ["אוכל", "חטיפים", "צעצועים"] },
+        "תחבורה 🚕": {
+          sub: ["אוטובוס", "רכבת", "מונית", "מוביט", "פנגו", "דלק", "כביש 6"],
+        },
+        "אימונים 🧘🏽": { sub: ["יוגה", "חדר כושר", "טיפוס", "סטודיו"] },
+        "טיולים בארץ 🍁": { sub: [] },
+        "חיי חברה 👬": { sub: ["חברים", "Dues"] },
+        "חינוך 📙": { sub: ["שכר לימוד"] },
+        "הלבשה 👕": { sub: ["ביגוד", "נעליים", "כביסה"] },
+        "טיפוח 💅": { sub: ["קוסמטיקה", "איפור", "תכשיטים", "תספורת"] },
+        "תרבות 🏞": { sub: ["ספרים", "סרטים", "מוסיקה"] },
+        "מתנות 🎁": { sub: ["חתונה", "יום הולדת"] },
+        "אחר 🖊️": { sub: ["עמלות בנק", "דואר"] },
+        "רכב 🚗": { sub: ["טיפולים", "טסט", "ביטוח"] },
+        "רפואי 💉": {
+          sub: [
+            "רופא שיניים",
+            "קופת חולים",
+            "תרופות",
+            "מקרה חירום רפואי",
+            "ביטוח חיים",
+          ],
+        },
+        "חופשה ⛺": {
+          sub: ["טיסות ✈", "מלון 🏨", "ביטוח נסיעות", "רכב", "אוכל"],
+        },
+      };
+
+      const defaultIncomeCategories = {
+        "משכורת 💰": { sub: ["בסיס", "שעות נוספות", "בונוס"] },
+        "מתנות 🎁": { sub: ["יום הולדת", "חג", "אחר"] },
+        "החזרים 🔄": { sub: ["ביטוח", "מס הכנסה", "ביטוח לאומי", "חברים"] },
+        "אחר ➕": { sub: ["הכנסה פסיבית", "מכירת ציוד", "שונות"] },
+      };
+
+      let db = {
+        accounts: { aviron: 0, orian: 0, joint: 0 },
+        vaults: {},
+        categories: defaultCategories,
+        incomeCategories: defaultIncomeCategories,
+        monthlyBudgets: {},
+        transactions: [],
+        autoTransfers: [],
+        autoTransferHistory: {},
+      };
+
+      let editingTransactionId = null;
+      let pendingSnapshotData = null;
+
+      const savedLocal = localStorage.getItem("vaultwise_data");
+      if (savedLocal) {
+        try {
+          db = JSON.parse(savedLocal);
+          if (!db.incomeCategories)
+            db.incomeCategories = defaultIncomeCategories;
+          if (!db.autoTransfers) db.autoTransfers = [];
+          if (!db.autoTransferHistory) db.autoTransferHistory = {};
+        } catch (e) {}
+      }
+
+      let activeType = "expense";
+      let currentMonth = new Date().getMonth();
+      let currentYear = new Date().getFullYear();
+      // let showAllBudgets = false;
+      let docRef = null;
+      let currentSort = "date";
+
+      window.addEventListener("load", () => {
+        populateDateSelectors();
+        populateDropdowns(); // טעינת רשימות נפתחות
+        processAutoTransfers(); // בדיקת העברות אוטומטיות
+        updateUI(); // <-- הוספת קריאה זו תפתור את איפוס הנתונים והחודש מיד בטעינה
+        initFirebase();
+      });
+
+      document
+        .getElementById("selectAccount")
+        .addEventListener("change", function () {
+          const val = this.value;
+          if (
+            activeType === "expense" &&
+            (val === "אבירון (פרטי)" || val === "אוריין (פרטי)")
+          ) {
+            document
+              .getElementById("jointPaidPrivateGroup")
+              .classList.remove("hidden");
+          } else {
+            document
+              .getElementById("jointPaidPrivateGroup")
+              .classList.add("hidden");
+            document.getElementById("inputJointPaidPrivate").checked = false;
+          }
+        });
+
+      // function toggleShowAllBudgets() {
+      //     showAllBudgets = !showAllBudgets;
+      //     const btn = document.getElementById('btnToggleBudgets');
+      //     if (showAllBudgets) {
+      //         btn.innerText = "מציג את כל התקציבים";
+      //         btn.className = "text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-lg transition-colors border border-emerald-500";
+      //     } else {
+      //         btn.innerText = "הצג את כל התקציבים";
+      //         btn.className = "text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-lg transition-colors border border-zinc-700/50";
+      //     }
+      //     updateUI();
+      // }
+
+      function getVaultBalanceForMonth(vaultName, m, y) {
+        const targetKey = y * 12 + m;
+        let balance = 0;
+
+        if (db.transactions) {
+          db.transactions.forEach((t) => {
+            const tKey = t.year * 12 + t.month;
+            if (tKey <= targetKey && t.category === vaultName) {
+              if (t.type === "transfer") balance += t.amount;
+              if (t.type === "withdraw") balance -= t.amount;
+            }
+            if (
+              tKey <= targetKey &&
+              t.account === "קופה: " + vaultName &&
+              t.type === "expense"
+            ) {
+              balance -= t.amount;
+            }
+          });
+        }
+
+        function getActiveRuleForMonth(vName, targetM, targetY) {
+          const tKey = targetY * 12 + targetM;
+          const validRules = (db.autoTransfers || []).filter(
+            (r) =>
+              r.vault === vName &&
+              Number(r.startYear) * 12 + Number(r.startMonth) <= tKey,
+          );
+          if (validRules.length === 0) return null;
+          validRules.sort((a, b) => {
+            const keyA = Number(a.startYear) * 12 + Number(a.startMonth);
+            const keyB = Number(b.startYear) * 12 + Number(b.startMonth);
+            if (keyB !== keyA) return keyB - keyA;
+            return b.id - a.id;
+          });
+          return validRules[0];
+        }
+
+        const realNow = new Date();
+        const realM = realNow.getMonth();
+        const realY = realNow.getFullYear();
+        const realKey = realY * 12 + realM;
+
+        if (targetKey > realKey && db.autoTransfers) {
+          let loopStartKey = realKey + 1;
+          let loopY = Math.floor(loopStartKey / 12);
+          let loopM = loopStartKey % 12;
+
+          while (loopY * 12 + loopM <= targetKey) {
+            const activeRule = getActiveRuleForMonth(vaultName, loopM, loopY);
+            if (activeRule) {
+              const ruleStartKey =
+                Number(activeRule.startYear) * 12 +
+                Number(activeRule.startMonth);
+              const currentLoopKey = loopY * 12 + loopM;
+              if (currentLoopKey >= ruleStartKey) {
+                balance += activeRule.amount;
+              }
+            }
+            loopM++;
+            if (loopM > 11) {
+              loopM = 0;
+              loopY++;
+            }
+          }
+        }
+
+        // הזרקת עודפי התקציב לקופת המערכת הווירטואלית
+        if (vaultName === "שארית מהתקציבים") {
+          balance += getGlobalBudgetSpare(m, y);
+        }
+
+        return balance;
+      }
+
+      function initFirebase() {
+        // BUG FIX: Prevent fatal ReferenceError if Firebase fails to load (offline / ad-blocker)
+        if (typeof firebase === "undefined") {
+          console.warn(
+            "VaultWise: Firebase SDK not loaded. Running locally in offline mode.",
+          );
+          return;
+        }
+
+        try {
+          if (
+            firebaseConfig.apiKey &&
+            firebaseConfig.apiKey !== "YOUR_API_KEY"
+          ) {
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const cloudDb = firebase.firestore();
+            docRef = cloudDb.collection("vaultwise").doc("shared_data");
+
+            auth.onAuthStateChanged((user) => {
+              const loginScreen = document.getElementById("loginScreen");
+              if (user) {
+                loginScreen.classList.add("hidden");
+                loadCloudData();
+              } else {
+                loginScreen.classList.remove("hidden");
+              }
+            });
+          }
+        } catch (e) {
+          console.error("Firebase init error:", e);
+        }
+      }
+
+      // פונקציית עזר לסידור תצוגת השקל והמינוס מימין לשמאל
+      function formatILS(amount, forceSign = "") {
+        const isNeg = amount < 0;
+        const sign = forceSign !== "" ? forceSign : isNeg ? "-" : "";
+        return `<span dir="ltr" class="inline-block whitespace-nowrap">${sign}${Math.abs(
+          amount,
+        ).toLocaleString()} ₪</span>`;
+      }
+
+      function loadCloudData() {
+        if (!docRef) return;
+        docRef.onSnapshot(
+          (doc) => {
+            if (doc.exists) {
+              const remoteData = doc.data();
+              const isModalOpen = document
+                .getElementById("addModal")
+                .classList.contains("active");
+
+              if (isModalOpen) {
+                pendingSnapshotData = remoteData;
+                return;
+              }
+
+              document
+                .getElementById("cloudStatus")
+                .classList.replace("bg-rose-500", "bg-emerald-500");
+              db = remoteData;
+
+              if (!db.accounts) db.accounts = { aviron: 0, orian: 0, joint: 0 };
+              if (!db.vaults) db.vaults = {};
+              if (!db.monthlyBudgets) db.monthlyBudgets = {};
+              if (!db.transactions) db.transactions = [];
+              if (!db.autoTransfers) db.autoTransfers = [];
+              if (!db.autoTransferHistory) db.autoTransferHistory = {};
+
+              if (!db.categories || Object.keys(db.categories).length === 0)
+                db.categories = defaultCategories;
+              if (
+                !db.incomeCategories ||
+                Object.keys(db.incomeCategories).length === 0
+              )
+                db.incomeCategories = defaultIncomeCategories;
+
+              localStorage.setItem("vaultwise_data", JSON.stringify(db));
+
+              populateDropdowns();
+              processAutoTransfers();
+              updateUI();
+            } else {
+              saveData();
+            }
+          },
+          (error) => console.error("Firebase Snapshot Error:", error),
+        );
+      }
+
+      function loginUser() {
+        const email = document.getElementById("loginEmail").value.trim();
+        const password = document.getElementById("loginPassword").value;
+        const errDiv = document.getElementById("loginError");
+        errDiv.innerText = "";
+
+        if (!email || !password) {
+          errDiv.innerText = "נא להזין אימייל וסיסמה";
+          return;
+        }
+
+        // BUG FIX: Protect auth call
+        if (typeof firebase === "undefined") {
+          errDiv.innerText = "שגיאת רשת: לא ניתן להתחבר לשרת כעת (מצב אופליין)";
+          return;
+        }
+
+        firebase
+          .auth()
+          .signInWithEmailAndPassword(email, password)
+          .catch((error) => {
+            errDiv.innerText = "שגיאה: פרטי ההתחברות שגויים";
+          });
+      }
+
+      function logoutUser() {
+        // BUG FIX: Protect auth call
+        if (typeof firebase === "undefined") {
+          return alert("שגיאת רשת: לא ניתן להתנתק כרגע.");
+        }
+
+        if (confirm("האם להתנתק מהמערכת?")) {
+          firebase.auth().signOut();
+        }
+      }
+
+      function populateDateSelectors() {
+        const months = [
+          "ינואר",
+          "פברואר",
+          "מרץ",
+          "אפריל",
+          "מאי",
+          "יוני",
+          "יולי",
+          "אוגוסט",
+          "ספטמבר",
+          "אוקטובר",
+          "נובמבר",
+          "דצמבר",
+        ];
+        let mHtml = "";
+        months.forEach(
+          (m, i) => (mHtml += `<option value="${i}">${m}</option>`),
+        );
+        let yHtml = "";
+        for (let y = 2020; y <= 2035; y++)
+          yHtml += `<option value="${y}">${y}</option>`;
+
+        document.getElementById("headerMonth").innerHTML = mHtml;
+        document.getElementById("headerYear").innerHTML = yHtml;
+        document.getElementById("inputMonth").innerHTML = mHtml;
+        document.getElementById("inputYear").innerHTML = yHtml;
+        document.getElementById("budgetStartMonth").innerHTML = mHtml;
+        document.getElementById("budgetStartYear").innerHTML = yHtml;
+        document.getElementById("autoTransferStartMonth").innerHTML = mHtml;
+        document.getElementById("autoTransferStartYear").innerHTML = yHtml;
+
+        const endMonthEl = document.getElementById("budgetEndMonth");
+        const endYearEl = document.getElementById("budgetEndYear");
+        if (endMonthEl)
+          endMonthEl.innerHTML =
+            '<option value="none" selected>ללא הגבלה</option>' + mHtml;
+        if (endYearEl)
+          endYearEl.innerHTML =
+            '<option value="none" selected>-</option>' + yHtml;
+      }
+
+      function jumpToDate() {
+        currentMonth = parseInt(document.getElementById("headerMonth").value);
+        currentYear = parseInt(document.getElementById("headerYear").value);
+        processAutoTransfers();
+        updateUI();
+      }
+
+      function saveData() {
+        localStorage.setItem("vaultwise_data", JSON.stringify(db));
+        if (docRef) {
+          document.getElementById("cloudStatus").classList.add("sync-active");
+          docRef.set(db).then(() => {
+            setTimeout(
+              () =>
+                document
+                  .getElementById("cloudStatus")
+                  .classList.remove("sync-active"),
+              500,
+            );
+          });
+        }
+        populateDropdowns();
+        updateUI();
+      }
+
+      function addAuditLog(action, details) {
+        if (!db.auditLogs) db.auditLogs = {};
+        const key = getMonthKey(currentMonth, currentYear);
+        if (!db.auditLogs[key]) db.auditLogs[key] = [];
+
+        const now = new Date();
+        const timeString =
+          now.toLocaleTimeString("he-IL", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }) +
+          " " +
+          now.toLocaleDateString("he-IL");
+
+        db.auditLogs[key].unshift({
+          time: timeString,
+          action: action,
+          details: details,
+        });
+      }
+
+      function getMonthKey(m = currentMonth, y = currentYear) {
+        return `${y}-${String(m + 1).padStart(2, "0")}`;
+      }
+
+      function getCategoryBudgetForMonth(
+        catKey,
+        m = currentMonth,
+        y = currentYear,
+      ) {
+        const targetKey = getMonthKey(m, y);
+        if (
+          db.monthlyBudgets &&
+          db.monthlyBudgets[targetKey] &&
+          db.monthlyBudgets[targetKey][catKey] !== undefined
+        ) {
+          return db.monthlyBudgets[targetKey][catKey];
+        }
+        const sortedKeys = Object.keys(db.monthlyBudgets || {})
+          .filter((k) => k <= targetKey)
+          .sort()
+          .reverse();
+        for (const key of sortedKeys) {
+          if (db.monthlyBudgets[key][catKey] !== undefined)
+            return db.monthlyBudgets[key][catKey];
+        }
+        return 0;
+      }
+
+      function getCategorySpentForMonth(catKey, m, y) {
+        const isSubCat = catKey.includes("|||");
+        const parts = catKey.split("|||");
+        const mainCat = parts[0];
+        const subCat = isSubCat ? parts[1] : null;
+
+        return db.transactions
+          .filter(
+            (t) =>
+              t.month === m &&
+              t.year === y &&
+              t.type === "expense" &&
+              t.category === mainCat &&
+              (!isSubCat || t.subCategory === subCat),
+          )
+          .reduce((sum, t) => sum + t.amount, 0);
+      }
+
+      function getGlobalBudgetSpare(targetM, targetY) {
+        if (!db.monthlyBudgets) return 0;
+        let totalSpare = 0;
+        const targetKey = getMonthKey(targetM, targetY);
+
+        const allCatKeys = new Set();
+        Object.keys(db.monthlyBudgets).forEach((monthKey) => {
+          Object.keys(db.monthlyBudgets[monthKey]).forEach((k) =>
+            allCatKeys.add(k),
+          );
+        });
+
+        allCatKeys.forEach((catKey) => {
+          let earliestKey = null;
+          const sortedKeys = Object.keys(db.monthlyBudgets).sort();
+          for (const k of sortedKeys) {
+            if (db.monthlyBudgets[k][catKey] !== undefined) {
+              earliestKey = k;
+              break;
+            }
+          }
+
+          if (!earliestKey || earliestKey >= targetKey) return;
+
+          const parts = earliestKey.split("-");
+          let loopY = parseInt(parts[0]);
+          let loopM = parseInt(parts[1]) - 1;
+
+          while (getMonthKey(loopM, loopY) < targetKey) {
+            const b = getCategoryBudgetForMonth(catKey, loopM, loopY);
+
+            // FIXED LOGIC: Only calculate spare for months where the budget is strictly active (> 0).
+            // Prevents inactive/deleted budgets from eternally draining the global spare.
+            if (b > 0) {
+              const s = getCategorySpentForMonth(catKey, loopM, loopY);
+              totalSpare += b - s;
+            }
+
+            loopM++;
+            if (loopM > 11) {
+              loopM = 0;
+              loopY++;
+            }
+          }
+        });
+
+        return totalSpare;
+      }
+
+      function getSnowballCarryover(catKey, currentM, currentY) {
+        if (!db.monthlyBudgets) return 0;
+        let earliestKey = null;
+
+        const sortedKeys = Object.keys(db.monthlyBudgets).sort();
+        for (const k of sortedKeys) {
+          if (db.monthlyBudgets[k][catKey] !== undefined) {
+            earliestKey = k;
+            break;
+          }
+        }
+
+        if (!earliestKey || earliestKey >= getMonthKey(currentM, currentY))
+          return 0;
+
+        const parts = earliestKey.split("-");
+        let loopY = parseInt(parts[0]);
+        let loopM = parseInt(parts[1]) - 1;
+
+        let carryover = 0;
+        const currentKeyStr = getMonthKey(currentM, currentY);
+
+        while (getMonthKey(loopM, loopY) < currentKeyStr) {
+          const b = getCategoryBudgetForMonth(catKey, loopM, loopY);
+          const s = getCategorySpentForMonth(catKey, loopM, loopY);
+          carryover = Math.max(0, carryover + b - s);
+
+          loopM++;
+          if (loopM > 11) {
+            loopM = 0;
+            loopY++;
+          }
+        }
+        return carryover;
+      }
+
+      function processAutoTransfers() {
+        try {
+          if (!db.autoTransfers) db.autoTransfers = [];
+          const realNow = new Date();
+          const realKey = realNow.getFullYear() * 12 + realNow.getMonth();
+          if (!db.autoTransferHistory) db.autoTransferHistory = {};
+
+          function getActiveRuleForMonth(vaultName, targetM, targetY) {
+            const targetKey = targetY * 12 + targetM;
+            const validRules = db.autoTransfers.filter(
+              (r) =>
+                r.vault === vaultName &&
+                Number(r.startYear) * 12 + Number(r.startMonth) <= targetKey,
+            );
+            if (validRules.length === 0) return null;
+            validRules.sort((a, b) => {
+              const keyA = Number(a.startYear) * 12 + Number(a.startMonth);
+              const keyB = Number(b.startYear) * 12 + Number(b.startMonth);
+              if (keyB !== keyA) return keyB - keyA;
+              return b.id - a.id;
+            });
+            return validRules[0];
+          }
+
+          let changed = false;
+          let minKey = realKey;
+          db.autoTransfers.forEach((at) => {
+            const k = Number(at.startYear) * 12 + Number(at.startMonth);
+            if (!isNaN(k) && k < minKey) minKey = k;
+          });
+
+          if (db.transactions) {
+            db.transactions.forEach((t) => {
+              if (t.note === "העברה אוטומטית חודשית") {
+                const k = t.year * 12 + t.month;
+                if (k < minKey) minKey = k;
+              }
+            });
+          }
+
+          let loopY = Math.floor(minKey / 12);
+          let loopM = minKey % 12;
+
+          const vaultsInRules = new Set(db.autoTransfers.map((r) => r.vault));
+          if (db.transactions) {
+            db.transactions
+              .filter((t) => t.note === "העברה אוטומטית חודשית")
+              .forEach((t) => vaultsInRules.add(t.category));
+          }
+
+          while (loopY * 12 + loopM <= realKey) {
+            const mk = `${loopY}-${String(loopM + 1).padStart(2, "0")}`;
+            if (!Array.isArray(db.autoTransferHistory[mk]))
+              db.autoTransferHistory[mk] = [];
+
+            vaultsInRules.forEach((vaultName) => {
+              const activeRule = getActiveRuleForMonth(vaultName, loopM, loopY);
+
+              const existingTxs = (db.transactions || []).filter(
+                (t) =>
+                  t.type === "transfer" &&
+                  t.category === vaultName &&
+                  t.note === "העברה אוטומטית חודשית" &&
+                  t.month === loopM &&
+                  t.year === loopY,
+              );
+
+              let needsExecution = false;
+              if (activeRule) {
+                const isPerfectMatch =
+                  existingTxs.length === 1 &&
+                  existingTxs[0].amount === activeRule.amount;
+                if (!isPerfectMatch) needsExecution = true;
+              } else if (existingTxs.length > 0) {
+                needsExecution = true;
+              }
+
+              if (needsExecution) {
+                // 1. ביטול התנועות הישנות (ללא נגיעה בחשבונות הבנק)
+                existingTxs.forEach((oldTx) => {
+                  if (db.vaults[oldTx.category] !== undefined)
+                    db.vaults[oldTx.category] -= oldTx.amount;
+                  db.transactions = db.transactions.filter(
+                    (t) => t.id !== oldTx.id,
+                  );
+                });
+
+                // 2. ניקוי המפתח
+                db.autoTransferHistory[mk] = db.autoTransferHistory[mk].filter(
+                  (key) => {
+                    const ruleId = key.split("_")[0];
+                    const matchingRule = db.autoTransfers.find(
+                      (r) => String(r.id) === String(ruleId),
+                    );
+                    return matchingRule && matchingRule.vault !== vaultName;
+                  },
+                );
+
+                // 3. יישום החוק
+                if (activeRule) {
+                  if (db.vaults[activeRule.vault] === undefined)
+                    db.vaults[activeRule.vault] = 0;
+                  db.vaults[activeRule.vault] += activeRule.amount;
+
+                  db.transactions.unshift({
+                    id: Date.now() + Math.random(),
+                    date: `01/${String(loopM + 1).padStart(2, "0")}/${loopY}`,
+                    month: loopM,
+                    year: loopY,
+                    type: "transfer",
+                    amount: activeRule.amount,
+                    account: "מעקב בלבד",
+                    category: activeRule.vault,
+                    subCategory: "הפקדה אוטומטית",
+                    note: "העברה אוטומטית חודשית",
+                  });
+                  db.autoTransferHistory[mk].push(`${activeRule.id}_${mk}`);
+                }
+                changed = true;
+              }
+            });
+
+            loopM++;
+            if (loopM > 11) {
+              loopM = 0;
+              loopY++;
+            }
+          }
+          return changed;
+        } catch (e) {
+          console.error("Error processing auto transfers:", e);
+          return false;
+        }
+      }
+
+      function toggleSection(contentId, iconId) {
+        const content = document.getElementById(contentId);
+        const icon = document.getElementById(iconId);
+        content.classList.toggle("hidden");
+        icon.classList.toggle("rotate-180");
+      }
+
+      function switchTab(tab) {
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((el) => el.classList.remove("active"));
+        document.getElementById("tab-" + tab).classList.add("active");
+
+        const tabClass = (t) =>
+          tab === t
+            ? "flex flex-col items-center text-emerald-400 text-xs font-medium"
+            : "flex flex-col items-center text-zinc-400 hover:text-zinc-200 text-xs font-medium";
+        document.getElementById("nav-trans").className = tabClass("trans");
+        document.getElementById("nav-charts").className = tabClass("charts");
+        document.getElementById("nav-settings").className =
+          tabClass("settings");
+
+        if (tab === "charts") renderCharts();
+      }
+
+      function switchSettingsTab(tab) {
+        document
+          .querySelectorAll(".settings-section")
+          .forEach((el) => el.classList.add("hidden"));
+        document.getElementById("set-" + tab).classList.remove("hidden");
+
+        const activeClass =
+          "flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg bg-zinc-800 text-zinc-100 shadow-sm transition-all";
+        const inactiveClass =
+          "flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg text-zinc-400 hover:text-zinc-200 transition-all";
+
+        document.getElementById("subnav-cats").className =
+          tab === "cats" ? activeClass : inactiveClass;
+        document.getElementById("subnav-vaults").className =
+          tab === "vaults" ? activeClass : inactiveClass;
+        document.getElementById("subnav-data").className =
+          tab === "data" ? activeClass : inactiveClass;
+      }
+
+      function populateDropdowns() {
+        const mainSelect = document.getElementById("selectCategory");
+        const settingMainSelect = document.getElementById(
+          "settingSelectMainCat",
+        );
+        const budgetSelect = document.getElementById("budgetSelectCat");
+        const targetVaultSelect = document.getElementById("selectTargetVault");
+        const autoVaultSelect = document.getElementById(
+          "selectAutoTransferVault",
+        );
+
+        const mainVal = mainSelect?.value;
+        const settingVal = settingMainSelect?.value;
+        const budgetVal = budgetSelect?.value;
+        const vaultVal = targetVaultSelect?.value;
+
+        mainSelect.innerHTML = "";
+        settingMainSelect.innerHTML = "";
+        budgetSelect.innerHTML = "";
+        targetVaultSelect.innerHTML = "";
+        if (autoVaultSelect)
+          autoVaultSelect.innerHTML =
+            '<option value="" disabled selected>לאיזו קופה להפקיד?</option>';
+
+        const sourceCats =
+          activeType === "income"
+            ? db.incomeCategories || defaultIncomeCategories
+            : db.categories;
+
+        // מיון קטגוריות
+        const sortedCats = Object.keys(sourceCats).sort((a, b) =>
+          a.localeCompare(b, "he"),
+        );
+        sortedCats.forEach(
+          (cat) =>
+            (mainSelect.innerHTML += `<option value="${cat}">${cat}</option>`),
+        );
+
+        const sortedAllCats = Object.keys(db.categories).sort((a, b) =>
+          a.localeCompare(b, "he"),
+        );
+        sortedAllCats.forEach((cat) => {
+          settingMainSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
+          budgetSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
+        });
+
+        // מיון קופות
+        const sortedVaults = Object.keys(db.vaults).sort((a, b) =>
+          a.localeCompare(b, "he"),
+        );
+        sortedVaults.forEach((v) => {
+          targetVaultSelect.innerHTML += `<option value="${v}">${v}</option>`;
+          if (autoVaultSelect)
+            autoVaultSelect.innerHTML += `<option value="${v}">${v}</option>`;
+        });
+
+        if (mainVal && sourceCats[mainVal]) mainSelect.value = mainVal;
+        if (settingVal && db.categories[settingVal])
+          settingMainSelect.value = settingVal;
+        if (budgetVal && db.categories[budgetVal])
+          budgetSelect.value = budgetVal;
+        if (
+          vaultVal &&
+          db.vaults[vaultVal] !== undefined &&
+          vaultVal !== "שארית מהתקציבים"
+        )
+          targetVaultSelect.value = vaultVal;
+
+        populateAccountSelect();
+        onMainCategoryChange();
+        onBudgetMainCatChange();
+
+        const filterSelect = document.getElementById("filterTransactions");
+        if (filterSelect) {
+          const currentFilter = filterSelect.value;
+          filterSelect.innerHTML = '<option value="all">כל הקטגוריות</option>';
+          Object.keys(db.categories)
+            .sort((a, b) => a.localeCompare(b, "he"))
+            .forEach((cat) => {
+              filterSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
+            });
+          if (currentFilter && db.categories[currentFilter])
+            filterSelect.value = currentFilter;
+        }
+      }
+
+      function populateAccountSelect() {
+        const html = `
+        <optgroup label="חשבונות">
+            <option value="חשבון משותף">חשבון משותף</option>
+            <option value="אבירון (פרטי)">אבירון (פרטי)</option>
+            <option value="אוריין (פרטי)">אוריין (פרטי)</option>
+        </optgroup>
+        `;
+        let vaultHtml = "";
+        if (Object.keys(db.vaults).length > 0) {
+          const vaultOptions = Object.keys(db.vaults)
+            .sort((a, b) => a.localeCompare(b, "he"))
+            .map((v) => `<option value="קופה: ${v}">קופה: ${v}</option>`)
+            .join("");
+          if (vaultOptions)
+            vaultHtml = `<optgroup label="קופות חיסכון">${vaultOptions}</optgroup>`;
+        }
+
+        const selectAcc = document.getElementById("selectAccount");
+        const selectAutoAcc = document.getElementById(
+          "selectAutoTransferAccount",
+        );
+
+        const accVal = selectAcc.value;
+        selectAcc.innerHTML = html + vaultHtml;
+        if (accVal && accVal !== "קופה: שארית מהתקציבים")
+          selectAcc.value = accVal;
+
+        if (selectAutoAcc)
+          selectAutoAcc.innerHTML =
+            '<option value="" disabled selected>מאיזה חשבון להעביר?</option>' +
+            html;
+      }
+
+      function onMainCategoryChange() {
+        const selectedCat = document.getElementById("selectCategory").value;
+        const subSelect = document.getElementById("selectSubCategory");
+        subSelect.innerHTML = "";
+
+        const sourceCats =
+          activeType === "income"
+            ? db.incomeCategories || defaultIncomeCategories
+            : db.categories;
+
+        if (
+          selectedCat &&
+          sourceCats[selectedCat] &&
+          sourceCats[selectedCat].sub
+        ) {
+          // מיון תת-קטגוריות
+          const sortedSubs = [...sourceCats[selectedCat].sub].sort((a, b) =>
+            a.localeCompare(b, "he"),
+          );
+          sortedSubs.forEach(
+            (sub) =>
+              (subSelect.innerHTML += `<option value="${sub}">${sub}</option>`),
+          );
+        }
+      }
+
+      function onBudgetMainCatChange() {
+        const mainCat = document.getElementById("budgetSelectCat").value;
+        const subSelect = document.getElementById("budgetSelectSubCat");
+        if (!subSelect) return;
+        subSelect.innerHTML =
+          '<option value="">כללי (כל הקטגוריה הראשית)</option>';
+        if (mainCat && db.categories[mainCat] && db.categories[mainCat].sub) {
+          // מיון תת-קטגוריות בתקציבים
+          const sortedSubs = [...db.categories[mainCat].sub].sort((a, b) =>
+            a.localeCompare(b, "he"),
+          );
+          sortedSubs.forEach(
+            (sub) =>
+              (subSelect.innerHTML += `<option value="${sub}">${sub}</option>`),
+          );
+        }
+      }
+
+      function addNewVault() {
+        const name = document.getElementById("inputNewVaultName").value.trim();
+        if (!name) return alert("נא להזין שם קופה");
+        if (db.vaults[name] !== undefined)
+          return alert("קופה בשם זה כבר קיימת");
+        db.vaults[name] = 0;
+        document.getElementById("inputNewVaultName").value = "";
+        saveData();
+      }
+
+      function renameVault(oldName) {
+        if (oldName === "שארית מהתקציבים")
+          return alert("לא ניתן לשנות את השם של קופת המערכת");
+
+        const newName = prompt(`הזן שם חדש לקופה "${oldName}":`, oldName);
+        if (!newName || newName.trim() === "" || newName === oldName) return;
+        if (db.vaults[newName] !== undefined)
+          return alert("קופה בשם זה כבר קיימת, יש לבחור שם אחר.");
+
+        // 1. עדכון המפתח ב-db.vaults
+        db.vaults[newName] = db.vaults[oldName];
+        delete db.vaults[oldName];
+
+        // 2. עדכון היסטוריית התנועות
+        if (db.transactions) {
+          db.transactions.forEach((t) => {
+            // אם הקופה שימשה כיעד להפקדה/משיכה
+            if (
+              (t.type === "transfer" || t.type === "withdraw") &&
+              t.category === oldName
+            ) {
+              t.category = newName;
+            }
+            // אם הקופה שימשה כמקור תשלום להוצאה
+            if (t.account === "קופה: " + oldName) {
+              t.account = "קופה: " + newName;
+            }
+          });
+        }
+
+        // 3. עדכון העברות אוטומטיות
+        if (db.autoTransfers) {
+          db.autoTransfers.forEach((at) => {
+            if (at.vault === oldName) at.vault = newName;
+            if (at.account === "קופה: " + oldName)
+              at.account = "קופה: " + newName;
+          });
+        }
+
+        saveData();
+      }
+
+      function deleteVault(vaultName) {
+        if (
+          !confirm(
+            `האם אתה בטוח שברצונך למחוק את הקופה "${vaultName}"? פעולה זו תמחק גם את היסטוריית התנועות שלה.`,
+          )
+        )
+          return;
+
+        // 1. טיפול בהוצאות שבוצעו ישירות מהקופה
+        const vaultExpenses = db.transactions.filter(
+          (t) => t.account === `קופה: ${vaultName}`,
+        );
+        if (vaultExpenses.length > 0) {
+          if (
+            !confirm(
+              `שים לב: קיימות ${vaultExpenses.length} הוצאות ששולמו ישירות מקופה זו. על מנת שהמערכת תישאר מאוזנת, חיובן יועבר ל"חשבון משותף". להמשיך?`,
+            )
+          )
+            return;
+          vaultExpenses.forEach((t) => {
+            t.account = "חשבון משותף";
+            adjustAccountOrVault("חשבון משותף", t.amount, true);
+          });
+        }
+
+        // 2. מחיקת תנועות ההפקדה והמשיכה (ללא נגיעה בחשבונות בנק!)
+        db.transactions = db.transactions.filter(
+          (t) =>
+            !(
+              t.category === vaultName &&
+              (t.type === "transfer" || t.type === "withdraw")
+            ),
+        );
+
+        // 3. מחיקת העברות אוטומטיות הקשורות
+        const rulesToDelete = (db.autoTransfers || [])
+          .filter((at) => at.vault === vaultName)
+          .map((at) => String(at.id));
+        db.autoTransfers = (db.autoTransfers || []).filter(
+          (at) => at.vault !== vaultName,
+        );
+
+        if (db.autoTransferHistory) {
+          for (let mk in db.autoTransferHistory) {
+            if (Array.isArray(db.autoTransferHistory[mk])) {
+              db.autoTransferHistory[mk] = db.autoTransferHistory[mk].filter(
+                (key) => {
+                  const ruleId = key.split("_")[0];
+                  return !rulesToDelete.includes(ruleId);
+                },
+              );
+            }
+          }
+        }
+
+        delete db.vaults[vaultName];
+        saveData();
+        alert("הקופה וכל היסטוריית התנועות שלה נמחקו בהצלחה.");
+      }
+
+      function editVaultBalance(vaultName) {
+        const currentVal = getVaultBalanceForMonth(
+          vaultName,
+          currentMonth,
+          currentYear,
+        );
+        const newValStr = prompt(
+          `ערוך יתרה לקופת "${vaultName}" לחודש זה\n(סכום נוכחי: ${currentVal} ₪):`,
+          currentVal,
+        );
+        if (newValStr !== null && newValStr.trim() !== "") {
+          const newVal = parseFloat(newValStr);
+          if (!isNaN(newVal) && newVal >= 0) {
+            const diff = newVal - currentVal;
+            if (diff !== 0) {
+              if (diff > 0) {
+                db.transactions.unshift({
+                  id: Date.now(),
+                  date: new Date().toLocaleDateString("he-IL"),
+                  month: currentMonth,
+                  year: currentYear,
+                  type: "transfer",
+                  amount: diff,
+                  account: "התאמה ידנית",
+                  category: vaultName,
+                  subCategory: "התאמת מערכת",
+                  note: "התאמת יתרה (הוספת כספים)",
+                });
+              } else {
+                db.transactions.unshift({
+                  id: Date.now(),
+                  date: new Date().toLocaleDateString("he-IL"),
+                  month: currentMonth,
+                  year: currentYear,
+                  type: "withdraw",
+                  amount: Math.abs(diff),
+                  account: "התאמה ידנית",
+                  category: vaultName,
+                  subCategory: "התאמת מערכת",
+                  note: "התאמת יתרה (הפחתת כספים)",
+                });
+              }
+              db.vaults[vaultName] = getVaultBalanceForMonth(
+                vaultName,
+                11,
+                currentYear + 5,
+              );
+              saveData();
+            }
+          } else {
+            alert("הוזן סכום לא תקין.");
+          }
+        }
+      }
+
+      function addAutoTransfer() {
+        const amount = parseFloat(
+          document.getElementById("inputAutoTransferAmount").value,
+        );
+        const vlt = document.getElementById("selectAutoTransferVault").value;
+        const startM = parseInt(
+          document.getElementById("autoTransferStartMonth").value,
+        );
+        const startY = parseInt(
+          document.getElementById("autoTransferStartYear").value,
+        );
+
+        if (isNaN(amount) || amount <= 0)
+          return alert("נא להזין סכום תקין להפקדה האוטומטית");
+        if (!vlt) return alert("נא לבחור לאיזו קופה תופקד ההעברה");
+
+        const atId = Date.now();
+        if (!db.autoTransfers) db.autoTransfers = [];
+        db.autoTransfers.push({
+          id: atId,
+          account: "מעקב בלבד",
+          vault: vlt,
+          amount: amount,
+          startMonth: startM,
+          startYear: startY,
+        });
+
+        document.getElementById("inputAutoTransferAmount").value = "";
+        document.getElementById("selectAutoTransferVault").value = "";
+
+        processAutoTransfers();
+        saveData();
+
+        switchSettingsTab("vaults");
+        alert("ההעברה האוטומטית נוספה בהצלחה!");
+      }
+
+      function deleteAutoTransfer(id) {
+        const rule = db.autoTransfers.find((t) => t.id === id);
+        if (rule) {
+          const ruleTransactions = db.transactions.filter(
+            (t) =>
+              t.type === "transfer" &&
+              t.category === rule.vault &&
+              t.amount === rule.amount &&
+              t.note === "העברה אוטומטית חודשית",
+          );
+
+          ruleTransactions.forEach((t) => {
+            if (db.vaults[t.category] !== undefined)
+              db.vaults[t.category] -= t.amount;
+          });
+          db.transactions = db.transactions.filter(
+            (t) => !ruleTransactions.includes(t),
+          );
+
+          for (let mk in db.autoTransferHistory) {
+            if (Array.isArray(db.autoTransferHistory[mk])) {
+              db.autoTransferHistory[mk] = db.autoTransferHistory[mk].filter(
+                (key) => !key.startsWith(id + "_"),
+              );
+            }
+          }
+        }
+        db.autoTransfers = db.autoTransfers.filter((t) => t.id !== id);
+        saveData();
+        alert("ההעברה האוטומטית נמחקה בהצלחה.");
+      }
+
+      function openModalFor(type, vaultName = null) {
+        editingTransactionId = null;
+        document.getElementById("modalTitle").innerText = "הוספת תנועה חדשה";
+        document.getElementById("inputAmount").value = "";
+        document.getElementById("inputNote").value = "";
+        document.getElementById("inputJointPaidPrivate").checked = false;
+
+        const dayInput = document.getElementById("inputDay");
+        if (dayInput) dayInput.value = "";
+
+        // בחלון הוספה חדש, נבחר אוטומטית את החודש שכרגע צופים בו
+        document.getElementById("inputMonth").value = currentMonth;
+        document.getElementById("inputYear").value = currentYear;
+
+        toggleModal(true);
+        setType(type);
+        if (vaultName)
+          document.getElementById("selectTargetVault").value = vaultName;
+      }
+
+      function editTransaction(id) {
+        const t = db.transactions.find((item) => item.id === id);
+        if (!t) return;
+        editingTransactionId = id;
+        toggleModal(true);
+        document.getElementById("modalTitle").innerText = "עריכת תנועה";
+
+        setType(t.type);
+        document.getElementById("inputAmount").value = t.amount;
+        document.getElementById("selectAccount").value = t.account;
+        document.getElementById("inputNote").value = t.note || "";
+        document.getElementById("inputJointPaidPrivate").checked =
+          t.isJointPaidPrivate || false;
+
+        const dayInput = document.getElementById("inputDay");
+        if (dayInput && t.date) {
+          const dayPart = t.date.split("/")[0];
+          dayInput.value = parseInt(dayPart, 10);
+        }
+        // בחלון עריכה, נטען את החודש והשנה השמורים של התנועה
+        document.getElementById("inputMonth").value = t.month;
+        document.getElementById("inputYear").value = t.year;
+
+        if (t.type === "expense" || t.type === "income") {
+          document.getElementById("selectCategory").value = t.category;
+          onMainCategoryChange();
+          setTimeout(
+            () =>
+              (document.getElementById("selectSubCategory").value =
+                t.subCategory || ""),
+            10,
+          );
+        } else {
+          document.getElementById("selectTargetVault").value = t.category;
+        }
+      }
+
+      function addNewMainCategory() {
+        const name = document
+          .getElementById("inputNewMainCatName")
+          .value.trim();
+        if (!name) return alert("נא להזין שם קטגוריה");
+        if (db.categories[name]) return alert("קטגוריה בשם זה כבר קיימת");
+
+        db.categories[name] = { sub: [] };
+        document.getElementById("inputNewMainCatName").value = "";
+        addAuditLog("הוספת קטגוריה ראשית", name);
+        saveData();
+      }
+
+      function addNewSubCategory() {
+        const mainCat = document.getElementById("settingSelectMainCat").value;
+        const newSub = document.getElementById("inputNewSubCat").value.trim();
+        if (!mainCat) return alert("נא לבחור קטגוריה ראשית");
+        if (!newSub) return alert("נא להזין שם תת-קטגוריה");
+
+        if (!db.categories[mainCat].sub.includes(newSub)) {
+          db.categories[mainCat].sub.push(newSub);
+          document.getElementById("inputNewSubCat").value = "";
+          addAuditLog("הוספת תת-קטגוריה", `${mainCat} > ${newSub}`);
+          saveData();
+        }
+      }
+
+      function saveCategoryBudget() {
+        const mainCat = document.getElementById("budgetSelectCat").value;
+        const subCat = document.getElementById("budgetSelectSubCat").value;
+        const budget = parseFloat(
+          document.getElementById("inputCatBudget").value,
+        );
+        if (isNaN(budget) || budget < 0)
+          return alert("נא להזין סכום תקציב תקין");
+
+        const bMonth = parseInt(
+          document.getElementById("budgetStartMonth").value,
+        );
+        const bYear = parseInt(
+          document.getElementById("budgetStartYear").value,
+        );
+
+        const endMonthVal = document.getElementById("budgetEndMonth").value;
+        const endYearVal = document.getElementById("budgetEndYear").value;
+        const overridePast =
+          document.getElementById("budgetOverridePast").checked;
+
+        const targetKey = subCat ? `${mainCat}|||${subCat}` : mainCat;
+        const activeKey = getMonthKey(bMonth, bYear);
+
+        let endKey = null;
+        if (endMonthVal !== "none" && endYearVal !== "none") {
+          let eM = parseInt(endMonthVal) + 1; // תאריך הסיום כולל את אותו החודש, ולכן האיפוס יקרה בחודש שאחריו
+          let eY = parseInt(endYearVal);
+          if (eM > 11) {
+            eM = 0;
+            eY++;
+          }
+          endKey = getMonthKey(eM, eY);
+
+          if (endKey <= activeKey) {
+            return alert(
+              "שגיאה: תאריך הסיום חייב להיות מאוחר יותר או שווה לתאריך ההתחלה.",
+            );
+          }
+        }
+
+        if (!db.monthlyBudgets) db.monthlyBudgets = {};
+
+        // אם בחרנו לדרוס היסטוריה (ברירת מחדל), מוחק קודם את כל המופעים הקודמים של התקציב הזה
+        if (overridePast) {
+          Object.keys(db.monthlyBudgets).forEach((k) => {
+            if (db.monthlyBudgets[k][targetKey] !== undefined)
+              delete db.monthlyBudgets[k][targetKey];
+          });
+        }
+
+        // הגדרת תאריך ההתחלה
+        if (!db.monthlyBudgets[activeKey]) db.monthlyBudgets[activeKey] = {};
+        db.monthlyBudgets[activeKey][targetKey] = budget;
+
+        // מנקה הגדרות שהיו תקועות באמצע הדרך
+        Object.keys(db.monthlyBudgets).forEach((k) => {
+          if (k > activeKey && (!endKey || k < endKey)) {
+            if (db.monthlyBudgets[k][targetKey] !== undefined)
+              delete db.monthlyBudgets[k][targetKey];
+          }
+        });
+
+        // הגדרת תאריך הסיום (אם יש) שמכניס ערך 0 בסוף התקופה
+        if (endKey) {
+          if (!db.monthlyBudgets[endKey]) db.monthlyBudgets[endKey] = {};
+          db.monthlyBudgets[endKey][targetKey] = 0;
+        }
+
+        document.getElementById("inputCatBudget").value = "";
+        saveData();
+        alert("התקציב נשמר/עודכן בהצלחה!");
+      }
+
+      function editCategoryBudget(catKey, amount) {
+        const parts = catKey.split("|||");
+        const mainCat = parts[0];
+        const subCat = parts.length > 1 ? parts[1] : "";
+
+        document.getElementById("budgetSelectCat").value = mainCat;
+        onBudgetMainCatChange();
+
+        setTimeout(() => {
+          document.getElementById("budgetSelectSubCat").value = subCat;
+          document.getElementById("inputCatBudget").value = amount;
+          document.getElementById("budgetStartMonth").value = currentMonth;
+          document.getElementById("budgetStartYear").value = currentYear;
+
+          if (document.getElementById("budgetEndMonth"))
+            document.getElementById("budgetEndMonth").value = "none";
+          if (document.getElementById("budgetEndYear"))
+            document.getElementById("budgetEndYear").value = "none";
+
+          document.getElementById("inputCatBudget").focus();
+          window.scrollTo({
+            top: document.getElementById("budgetSelectCat").offsetTop - 50,
+            behavior: "smooth",
+          });
+        }, 50);
+      }
+
+      // מחיקת תקציב מהחודש הנצפה והלאה
+      function deleteCategoryBudget(catKey) {
+        if (
+          confirm(
+            'האם אתה בטוח שברצונך לאפס ולמחוק את התקציב לקטגוריה זו (מהחודש הנצפה והלאה)?\nכדי למחוק מכל העבר - השתמש בחלון "הצג את כל התקציבים".',
+          )
+        ) {
+          const currentKey = getMonthKey(currentMonth, currentYear);
+          if (!db.monthlyBudgets) db.monthlyBudgets = {};
+          if (!db.monthlyBudgets[currentKey])
+            db.monthlyBudgets[currentKey] = {};
+          db.monthlyBudgets[currentKey][catKey] = 0;
+
+          Object.keys(db.monthlyBudgets).forEach((k) => {
+            if (k > currentKey && db.monthlyBudgets[k][catKey] !== undefined) {
+              delete db.monthlyBudgets[k][catKey];
+            }
+          });
+          saveData();
+        }
+      }
+
+      // מחיקה אבסולוטית של קטגוריה מכל הזמנים (חדש)
+      function deleteAllCategoryBudget(catKey) {
+        if (
+          confirm(
+            "האם למחוק לחלוטין את כל היסטוריית התקציבים של קטגוריה זו (עבר, הווה ועתיד)?\nהתנועות עצמן לא ייפגעו.",
+          )
+        ) {
+          if (db.monthlyBudgets) {
+            Object.keys(db.monthlyBudgets).forEach((k) => {
+              if (db.monthlyBudgets[k][catKey] !== undefined)
+                delete db.monthlyBudgets[k][catKey];
+            });
+            saveData();
+            openAllBudgetsModal(); // רענון החלון
+          }
+        }
+      }
+
+      function deleteCategoryBudget(catKey) {
+        if (
+          confirm(
+            "האם אתה בטוח שברצונך לאפס ולמחוק את התקציב לקטגוריה זו (מהחודש הנוכחי והלאה)?",
+          )
+        ) {
+          const currentKey = getMonthKey();
+          if (!db.monthlyBudgets) db.monthlyBudgets = {};
+          if (!db.monthlyBudgets[currentKey])
+            db.monthlyBudgets[currentKey] = {};
+          db.monthlyBudgets[currentKey][catKey] = 0;
+
+          Object.keys(db.monthlyBudgets).forEach((k) => {
+            if (k > currentKey && db.monthlyBudgets[k][catKey] !== undefined) {
+              delete db.monthlyBudgets[k][catKey];
+            }
+          });
+          saveData();
+        }
+      }
+
+      function deleteSubCategory(mainCat, subName) {
+        if (!confirm(`האם למחוק את התת-קטגוריה "${subName}"?`)) return;
+        db.categories[mainCat].sub = db.categories[mainCat].sub.filter(
+          (s) => s !== subName,
+        );
+        addAuditLog("מחיקת תת-קטגוריה", `${mainCat} > ${subName}`);
+        saveData();
+      }
+
+      function deleteMainCategory(catName) {
+        if (confirm(`האם למחוק את הקטגוריה הראשית "${catName}"?`)) {
+          delete db.categories[catName];
+          addAuditLog("מחיקת קטגוריה ראשית", catName);
+          saveData();
+        }
+      }
+
+      function renameMainCategory(oldCatName) {
+        const newCatName = prompt(
+          `הזן שם חדש לקטגוריה "${oldCatName}":`,
+          oldCatName,
+        );
+        if (
+          !newCatName ||
+          newCatName.trim() === "" ||
+          newCatName === oldCatName
+        )
+          return;
+        if (db.categories[newCatName])
+          return alert("קטגוריה בשם זה כבר קיימת.");
+
+        // 1. העברת הנתונים
+        db.categories[newCatName] = db.categories[oldCatName];
+        delete db.categories[oldCatName];
+
+        // 2. עדכון תנועות
+        db.transactions.forEach((t) => {
+          if (t.category === oldCatName) t.category = newCatName;
+        });
+
+        // 3. עדכון תקציבים
+        if (db.monthlyBudgets) {
+          Object.keys(db.monthlyBudgets).forEach((monthKey) => {
+            Object.keys(db.monthlyBudgets[monthKey]).forEach((key) => {
+              if (key === oldCatName || key.startsWith(oldCatName + "|||")) {
+                const newKey = key.replace(oldCatName, newCatName);
+                db.monthlyBudgets[monthKey][newKey] =
+                  db.monthlyBudgets[monthKey][key];
+                delete db.monthlyBudgets[monthKey][key];
+              }
+            });
+          });
+        }
+        addAuditLog("שינוי שם קטגוריה", `מ-${oldCatName} ל-${newCatName}`);
+        saveData();
+        populateDropdowns();
+      }
+
+      function renameSubCategory(mainCat, oldSubName) {
+        const newSubName = prompt(
+          `הזן שם חדש לתת-קטגוריה "${oldSubName}":`,
+          oldSubName,
+        );
+        if (
+          !newSubName ||
+          newSubName.trim() === "" ||
+          newSubName === oldSubName
+        )
+          return;
+        if (db.categories[mainCat].sub.includes(newSubName))
+          return alert("תת-קטגוריה בשם זה כבר קיימת.");
+
+        // 1. עדכון המערך
+        const index = db.categories[mainCat].sub.indexOf(oldSubName);
+        if (index !== -1) db.categories[mainCat].sub[index] = newSubName;
+
+        // 2. עדכון תנועות
+        db.transactions.forEach((t) => {
+          if (t.category === mainCat && t.subCategory === oldSubName)
+            t.subCategory = newSubName;
+        });
+
+        // 3. עדכון תקציבים
+        if (db.monthlyBudgets) {
+          Object.keys(db.monthlyBudgets).forEach((monthKey) => {
+            const targetKey = `${mainCat}|||${oldSubName}`;
+            const newKey = `${mainCat}|||${newSubName}`;
+            if (db.monthlyBudgets[monthKey][targetKey] !== undefined) {
+              db.monthlyBudgets[monthKey][newKey] =
+                db.monthlyBudgets[monthKey][targetKey];
+              delete db.monthlyBudgets[monthKey][targetKey];
+            }
+          });
+        }
+        addAuditLog(
+          "שינוי שם תת-קטגוריה",
+          `מ-${oldSubName} ל-${newSubName} (${mainCat})`,
+        );
+        saveData();
+        populateDropdowns();
+      }
+
+      function setType(type) {
+        activeType = type;
+
+        document.getElementById("btnExpense").className =
+          type === "expense"
+            ? "py-2 font-bold rounded-lg bg-rose-600 text-white transition-all shadow-sm"
+            : "py-2 font-bold rounded-lg text-zinc-400 hover:text-zinc-200 transition-all";
+        document.getElementById("btnIncome").className =
+          type === "income"
+            ? "py-2 font-bold rounded-lg bg-emerald-600 text-white transition-all shadow-sm"
+            : "py-2 font-bold rounded-lg text-zinc-400 hover:text-zinc-200 transition-all";
+        document.getElementById("btnTransfer").className =
+          type === "transfer"
+            ? "py-2 font-bold rounded-lg bg-blue-600 text-white transition-all shadow-sm"
+            : "py-2 font-bold rounded-lg text-zinc-400 hover:text-zinc-200 transition-all";
+        document.getElementById("btnWithdraw").className =
+          type === "withdraw"
+            ? "py-2 font-bold rounded-lg bg-amber-600 text-white transition-all shadow-sm"
+            : "py-2 font-bold rounded-lg text-zinc-400 hover:text-zinc-200 transition-all";
+
+        const mainSelect = document.getElementById("selectCategory");
+        mainSelect.innerHTML = "";
+
+        const sourceCats =
+          type === "income"
+            ? db.incomeCategories || defaultIncomeCategories
+            : db.categories;
+        Object.keys(sourceCats).forEach(
+          (cat) =>
+            (mainSelect.innerHTML += `<option value="${cat}">${cat}</option>`),
+        );
+
+        onMainCategoryChange();
+
+        // UI Rules: Hide bank account selector for Vault transfers!
+        if (type === "transfer" || type === "withdraw") {
+          document.getElementById("catGroup").classList.add("hidden");
+          document.getElementById("vaultGroup").classList.remove("hidden");
+          document
+            .getElementById("selectAccount")
+            .parentElement.classList.add("hidden"); // Hide Bank Selector
+          document.getElementById("labelVault").innerText =
+            type === "transfer" ? "לאיזו קופה להפקיד?" : "מאיזו קופה למשוך?";
+        } else if (type === "income") {
+          document.getElementById("catGroup").classList.remove("hidden");
+          document.getElementById("vaultGroup").classList.add("hidden");
+          document
+            .getElementById("selectAccount")
+            .parentElement.classList.remove("hidden");
+          document.getElementById("labelAccount").innerText =
+            "לאיזה חשבון ההכנסה נכנסת?";
+        } else {
+          document.getElementById("catGroup").classList.remove("hidden");
+          document.getElementById("vaultGroup").classList.add("hidden");
+          document
+            .getElementById("selectAccount")
+            .parentElement.classList.remove("hidden");
+          document.getElementById("labelAccount").innerText =
+            "מאיזה חשבון / קופה משלמים?";
+        }
+
+        document
+          .getElementById("selectAccount")
+          .dispatchEvent(new Event("change"));
+      }
+
+      function toggleModal(show) {
+        document.getElementById("addModal").classList.toggle("active", show);
+
+        // If modal is being closed and there's a queued snapshot update, apply it now
+        if (!show && pendingSnapshotData) {
+          db = pendingSnapshotData;
+          pendingSnapshotData = null;
+          localStorage.setItem("vaultwise_data", JSON.stringify(db));
+          populateDropdowns();
+          processAutoTransfers();
+          updateUI();
+        }
+      }
+
+      function openAllBudgetsModal() {
+        const list = document.getElementById("allBudgetsList");
+        let html = "";
+
+        const allCatKeys = new Set();
+        if (db.monthlyBudgets) {
+          Object.keys(db.monthlyBudgets).forEach((monthKey) => {
+            Object.keys(db.monthlyBudgets[monthKey]).forEach((k) =>
+              allCatKeys.add(k),
+            );
+          });
+        }
+
+        if (allCatKeys.size === 0) {
+          html =
+            '<div class="text-xs text-zinc-500 text-center py-4">טרם הוגדרו תקציבים במערכת.</div>';
+        } else {
+          let hasBudgets = false;
+
+          allCatKeys.forEach((catKey) => {
+            let changes = [];
+            Object.keys(db.monthlyBudgets).forEach((k) => {
+              if (db.monthlyBudgets[k][catKey] !== undefined) {
+                changes.push({ key: k, amount: db.monthlyBudgets[k][catKey] });
+              }
+            });
+
+            changes.sort((a, b) => a.key.localeCompare(b.key)); // סידור כרונולוגי
+
+            let ranges = [];
+            if (changes.length > 0) {
+              let currentStart = changes[0].key;
+              let currentVal = changes[0].amount;
+
+              for (let i = 1; i < changes.length; i++) {
+                if (currentVal > 0) {
+                  // חישוב תאריך הסיום (חודש אחד לפני השינוי הבא)
+                  let endKeyRaw = changes[i].key;
+                  let eY = parseInt(endKeyRaw.split("-")[0]);
+                  let eM = parseInt(endKeyRaw.split("-")[1]) - 1;
+                  eM--; // חודש אחורה
+                  if (eM < 0) {
+                    eM = 11;
+                    eY--;
+                  }
+                  let endKeyDisplay = `${String(eM + 1).padStart(
+                    2,
+                    "0",
+                  )}/${eY}`;
+
+                  ranges.push({
+                    start: formatMonthKey(currentStart),
+                    end: endKeyDisplay,
+                    amount: currentVal,
+                  });
+                }
+                currentStart = changes[i].key;
+                currentVal = changes[i].amount;
+              }
+              if (currentVal > 0) {
+                ranges.push({
+                  start: formatMonthKey(currentStart),
+                  end: "פעיל הלאה",
+                  amount: currentVal,
+                });
+              }
+            }
+
+            if (ranges.length > 0) {
+              hasBudgets = true;
+              const nameDisplay = catKey.replace("|||", " > ");
+
+              let rangesHtml = ranges
+                .map(
+                  (r) => `
+                        <div class="flex justify-between items-center text-[11px] bg-zinc-900 rounded-md p-2 mt-1.5 border border-zinc-800/50">
+                            <span class="text-zinc-400"><i data-lucide="calendar" class="w-3 h-3 inline-block ml-1 opacity-70"></i>${
+                              r.start
+                            } - ${r.end}</span>
+                            <span class="font-bold text-emerald-400/90 tracking-wide">${formatILS(
+                              r.amount,
+                            )}</span>
+                        </div>
+                    `,
+                )
+                .join("");
+
+              html += `
+                        <div class="bg-zinc-950 p-3.5 rounded-xl border border-zinc-800/80 flex flex-col text-xs mb-3 shadow-sm">
+                            <div class="flex justify-between items-center mb-1 border-b border-zinc-800 pb-2">
+                                <div class="font-bold text-zinc-200 text-sm">${nameDisplay}</div>
+                                <button onclick="deleteAllCategoryBudget('${catKey}')" class="bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all p-1.5 rounded-lg" title="מחק תקציב זה מכל הזמנים">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                            <div class="space-y-1">
+                                ${rangesHtml}
+                            </div>
+                        </div>
+                    `;
+            }
+          });
+
+          if (!hasBudgets) {
+            html =
+              '<div class="text-xs text-zinc-500 text-center py-4">לא נמצאו תקציבים פעילים (הכל מאופס).</div>';
+          }
+        }
+
+        list.innerHTML = html;
+        document.getElementById("allBudgetsModal").classList.add("active");
+        if (typeof lucide !== "undefined") lucide.createIcons();
+      }
+
+      // פונקציית עזר לתרגום פורמט תאריכים
+      function formatMonthKey(key) {
+        const parts = key.split("-");
+        return `${parts[1]}/${parts[0]}`;
+      }
+
+      function closeAllBudgetsModal() {
+        document.getElementById("allBudgetsModal").classList.remove("active");
+      }
+
+      function adjustAccountOrVault(source, amount, isDeduct) {
+        if (!source) return;
+        const factor = isDeduct ? 1 : -1;
+
+        if (source.startsWith("קופה: ")) {
+          const vaultName = source.replace("קופה: ", "");
+          if (db.vaults[vaultName] !== undefined)
+            db.vaults[vaultName] -= amount * factor;
+        } else {
+          // BUG FIX: Strict mapping replaces fragile string `.includes()` logic
+          const accountMapping = {
+            "אבירון (פרטי)": "aviron",
+            "אוריין (פרטי)": "orian",
+            "חשבון משותף": "joint",
+          };
+
+          // Find mapped key, default to joint as a safety net
+          const accKey = accountMapping[source] || "joint";
+
+          if (accKey && db.accounts[accKey] !== undefined) {
+            db.accounts[accKey] -= amount * factor;
+          }
+        }
+      }
+
+      function processQuickAdd() {
+        const inputEl = document.getElementById("quickAddInput");
+        let text = inputEl.value.trim();
+        if (!text) return;
+
+        // הגנה על ביטויים עם מספרים כדי שהמערכת לא תתבלבל
+        text = text.replace(/כביש 6/g, "כביש_שש");
+
+        let amount = null;
+        let day = null;
+        let note = text;
+
+        // מציאת כל המספרים העומדים בפני עצמם במשפט
+        const numMatches = text.match(/(?:^|\s)(\d+(?:\.\d+)?)(?=\s|$)/g);
+
+        if (!numMatches || numMatches.length === 0) {
+          return alert(
+            "לא מצאתי סכום. נסה לכתוב תיאור וסכום עם רווח (למשל: באולינג 40 24)",
+          );
+        }
+
+        // המספר הראשון הוא הסכום
+        amount = parseFloat(numMatches[0]);
+        note = note.replace(numMatches[0], " ");
+
+        // אם יש מספר נוסף, נבדוק אם הוא יום חוקי בחודש (1-31)
+        if (numMatches.length > 1) {
+          const possibleDay = parseInt(numMatches[1], 10);
+          if (possibleDay >= 1 && possibleDay <= 31) {
+            day = possibleDay;
+            note = note.replace(numMatches[1], " ");
+          }
+        }
+
+        // החזרת הביטויים המוגנים חזרה לטקסט המקורי
+        note = note.replace(/כביש_שש/g, "כביש 6");
+
+        let account = "חשבון משותף";
+        if (note.includes("אוריין")) {
+          account = "אוריין (פרטי)";
+          note = note.replace(/\(?אוריין\)?/g, "").trim();
+        } else if (note.includes("אבירון")) {
+          account = "אבירון (פרטי)";
+          note = note.replace(/\(?אבירון\)?/g, "").trim();
+        }
+
+        note = note.trim();
+        if (note === "") note = "הוצאה מהירה";
+
+        openModalFor("expense");
+
+        document.getElementById("inputAmount").value = amount;
+        document.getElementById("inputNote").value = note;
+        if (day !== null) {
+          document.getElementById("inputDay").value = day;
+        }
+
+        const selectAccount = document.getElementById("selectAccount");
+        for (let i = 0; i < selectAccount.options.length; i++) {
+          if (selectAccount.options[i].value.includes(account)) {
+            selectAccount.selectedIndex = i;
+            break;
+          }
+        }
+
+        // --- שיוך קטגוריות אוטומטי לפי מילות מפתח ---
+        let autoCategory = null;
+        let autoSubCategory = null;
+
+        for (const [mainCat, catData] of Object.entries(db.categories)) {
+          for (const sub of catData.sub) {
+            // מסיר אמוג'ים וסימנים מיוחדים משם תת-הקטגוריה כדי לאפשר זיהוי קל
+            // (ככה כשתכתוב "סופר", המערכת תדע לקשר את זה לתת הקטגוריה "סופר 🛒")
+            const cleanSub = sub
+              .replace(/[^\u0590-\u05FFa-zA-Z0-9 ]/g, "")
+              .trim();
+
+            if (cleanSub.length > 1 && note.includes(cleanSub)) {
+              autoCategory = mainCat;
+              autoSubCategory = sub;
+              break;
+            }
+          }
+          if (autoCategory) break; // מפסיק את הסריקה ברגע שנמצאה התאמה
+        }
+
+        if (autoCategory) {
+          document.getElementById("selectCategory").value = autoCategory;
+          onMainCategoryChange(); // טוען את תת-הקטגוריות של הקטגוריה שנבחרה
+          if (autoSubCategory) {
+            setTimeout(() => {
+              document.getElementById("selectSubCategory").value =
+                autoSubCategory;
+            }, 10);
+          }
+        }
+        // ---------------------------------------------
+
+        inputEl.value = "";
+        setTimeout(
+          () => document.getElementById("selectCategory").focus(),
+          100,
+        );
+      }
+
+      function saveTransaction() {
+        const amount = parseFloat(document.getElementById("inputAmount").value);
+        const account = document.getElementById("selectAccount").value;
+        const category = document.getElementById("selectCategory").value;
+        const subCategory = document.getElementById("selectSubCategory").value;
+        const targetVault = document.getElementById("selectTargetVault").value;
+        const note = document.getElementById("inputNote").value.trim();
+        const isJointPrivate = document.getElementById(
+          "inputJointPaidPrivate",
+        ).checked;
+
+        if (!amount || amount <= 0) return alert("נא להזין סכום תקין");
+
+        // קוראים את החודש והשנה שנבחרו מתוך התפריטים בחלון עצמו
+        const selectedMonth = parseInt(
+          document.getElementById("inputMonth").value,
+        );
+        const selectedYear = parseInt(
+          document.getElementById("inputYear").value,
+        );
+
+        const dayInputStr = document.getElementById("inputDay").value;
+        let targetDay = new Date().getDate();
+
+        if (dayInputStr && !isNaN(dayInputStr)) {
+          const parsedDay = parseInt(dayInputStr);
+          if (parsedDay >= 1 && parsedDay <= 31) targetDay = parsedDay;
+        } else if (
+          selectedMonth !== new Date().getMonth() ||
+          selectedYear !== new Date().getFullYear()
+        ) {
+          targetDay = 1;
+        }
+
+        let originalDate = `${String(targetDay).padStart(2, "0")}/${String(
+          selectedMonth + 1,
+        ).padStart(2, "0")}/${selectedYear}`;
+        let tMonth = selectedMonth;
+        let tYear = selectedYear;
+        let tId = Date.now();
+
+        if (editingTransactionId) {
+          const oldT = db.transactions.find(
+            (item) => item.id === editingTransactionId,
+          );
+          if (oldT) {
+            if (oldT.type === "expense")
+              adjustAccountOrVault(oldT.account, oldT.amount, false);
+            else if (oldT.type === "income")
+              adjustAccountOrVault(oldT.account, oldT.amount, true);
+            else if (oldT.type === "transfer") {
+              if (db.vaults[oldT.category] !== undefined)
+                db.vaults[oldT.category] -= oldT.amount;
+            } else if (oldT.type === "withdraw") {
+              if (db.vaults[oldT.category] !== undefined)
+                db.vaults[oldT.category] += oldT.amount;
+            }
+
+            // הסרנו את קוד הדריסה! עכשיו הוא פשוט שומר את הזהות (ID) של התנועה הישנה
+            // אבל משתמש בחודש, בשנה ובתאריך החדשים שהגדרת בתפריטים למעלה
+            tId = oldT.id;
+
+            db.transactions = db.transactions.filter(
+              (item) => item.id !== editingTransactionId,
+            );
+          }
+        }
+
+        let finalAccount = account;
+        if (activeType === "expense")
+          adjustAccountOrVault(finalAccount, amount, true);
+        else if (activeType === "income")
+          adjustAccountOrVault(finalAccount, amount, false);
+        else if (activeType === "transfer") {
+          if (!targetVault) return alert("נא להגדיר קודם קופת חיסכון");
+          finalAccount = "מעקב בלבד";
+          db.vaults[targetVault] = (db.vaults[targetVault] || 0) + amount;
+        } else if (activeType === "withdraw") {
+          if (!targetVault) return alert("נא לבחור קופה למשיכה");
+          finalAccount = "מעקב בלבד";
+          db.vaults[targetVault] = (db.vaults[targetVault] || 0) - amount;
+        }
+
+        let catTitle =
+          activeType === "transfer" || activeType === "withdraw"
+            ? targetVault
+            : category;
+        let subTitle =
+          activeType === "transfer"
+            ? "הפקדה לקופה"
+            : activeType === "withdraw"
+              ? "משיכה מקופה"
+              : subCategory;
+
+        db.transactions.unshift({
+          id: tId,
+          date: originalDate,
+          month: tMonth,
+          year: tYear,
+          type: activeType,
+          amount: amount,
+          account: finalAccount,
+          category: catTitle,
+          subCategory: subTitle,
+          note: note,
+          isJointPaidPrivate: isJointPrivate,
+        });
+
+        document.getElementById("inputAmount").value = "";
+        document.getElementById("inputNote").value = "";
+        const dayInput = document.getElementById("inputDay");
+        if (dayInput) dayInput.value = "";
+
+        editingTransactionId = null;
+        toggleModal(false);
+        addAuditLog(
+          editingTransactionId ? "עריכת תנועה" : "הוספת תנועה",
+          `${activeType === "income" ? "+" : "-"}${amount} ₪ | ${category}`,
+        );
+        saveData();
+      }
+
+      // function deleteTransaction(id) {
+      //   const t = db.transactions.find((item) => item.id === id);
+      //   if (!t) return;
+
+      //   if (confirm("האם למחוק תנועה זו? היתרה תתעדכן בהתאם.")) {
+      //     if (t.type === "expense")
+      //       adjustAccountOrVault(t.account, t.amount, false);
+      //     else if (t.type === "income")
+      //       adjustAccountOrVault(t.account, t.amount, true);
+      //     else if (t.type === "transfer") {
+      //       if (db.vaults[t.category] !== undefined)
+      //         db.vaults[t.category] -= t.amount;
+      //     } else if (t.type === "withdraw") {
+      //       if (db.vaults[t.category] !== undefined)
+      //         db.vaults[t.category] += t.amount;
+      //     }
+      //     db.transactions = db.transactions.filter((item) => item.id !== id);
+
+      //     Object.keys(db.vaults).forEach((v) => {
+      //       db.vaults[v] = getVaultBalanceForMonth(v, 11, currentYear + 5);
+      //     });
+
+      //     addAuditLog(
+      //       "מחיקת תנועה",
+      //       `${t.type === "income" ? "+" : "-"}${t.amount} ₪ | ${t.category}`,
+      //     );
+      //     saveData();
+      //   }
+      // }
+
+      function deleteTransaction(id) {
+        const t = db.transactions.find((item) => item.id === id);
+        if (!t) return;
+
+        if (confirm("האם למחוק תנועה זו? היתרה תתעדכן בהתאם.")) {
+          if (t.type === "expense")
+            adjustAccountOrVault(t.account, t.amount, false);
+          else if (t.type === "income")
+            adjustAccountOrVault(t.account, t.amount, true);
+          else if (t.type === "transfer") {
+            adjustAccountOrVault(t.account, t.amount, false);
+            if (db.vaults[t.category] !== undefined)
+              db.vaults[t.category] -= t.amount;
+          } else if (t.type === "withdraw") {
+            adjustAccountOrVault(t.account, t.amount, true);
+            if (db.vaults[t.category] !== undefined)
+              db.vaults[t.category] += t.amount;
+          }
+          db.transactions = db.transactions.filter((item) => item.id !== id);
+
+          // סנכרון בטוח של יתרות הקופות
+          Object.keys(db.vaults).forEach((v) => {
+            db.vaults[v] = getVaultBalanceForMonth(v, 11, currentYear + 5);
+          });
+
+          addAuditLog(
+            "מחיקת תנועה",
+            `${t.type === "income" ? "+" : "-"}${t.amount} ₪ | ${t.category}`,
+          );
+          saveData();
+        }
+      }
+
+      function updateUI() {
+        // אתחול קופת המערכת במידה ולא קיימת עדיין
+        if (db.vaults["שארית מהתקציבים"] === undefined) {
+          db.vaults["שארית מהתקציבים"] = 0;
+        }
+
+        const monthSelect = document.getElementById("headerMonth");
+        const yearSelect = document.getElementById("headerYear");
+
+        monthSelect.selectedIndex = currentMonth;
+        yearSelect.value = String(currentYear);
+
+        document.getElementById("headerMonth").value = currentMonth;
+        document.getElementById("headerYear").value = currentYear;
+        document.getElementById("budgetStartMonth").value = currentMonth;
+        document.getElementById("budgetStartYear").value = currentYear;
+        document.getElementById("autoTransferStartMonth").value = currentMonth;
+        document.getElementById("autoTransferStartYear").value = currentYear;
+
+        let stats = {
+          aviron: { income: 0, expense: 0 },
+          orian: { income: 0, expense: 0 },
+          joint: { income: 0, expense: 0 },
+        };
+
+        const monthlyTxs = db.transactions.filter(
+          (t) => t.month === currentMonth && t.year === currentYear,
+        );
+        monthlyTxs.forEach((t) => {
+          const accMapping = {
+            "אבירון (פרטי)": "aviron",
+            "אוריין (פרטי)": "orian",
+            "חשבון משותף": "joint",
+          };
+          const accKey = accMapping[t.account];
+
+          if (accKey) {
+            if (t.type === "income") stats[accKey].income += t.amount;
+            if (t.type === "expense") stats[accKey].expense += t.amount;
+          }
+        });
+
+        const balAviron = stats.aviron.income - stats.aviron.expense;
+        const balOrian = stats.orian.income - stats.orian.expense;
+        const balJoint = stats.joint.income - stats.joint.expense;
+        const totalNet = balAviron + balOrian + balJoint;
+
+        // עדכון שדות אבירון
+        document.getElementById("incomeAviron").innerHTML = formatILS(
+          stats.aviron.income,
+        );
+        document.getElementById("expenseAviron").innerHTML = formatILS(
+          stats.aviron.expense,
+        );
+        document.getElementById("balanceAviron").innerHTML =
+          formatILS(balAviron);
+
+        // עדכון שדות אוריין
+        document.getElementById("incomeOrian").innerHTML = formatILS(
+          stats.orian.income,
+        );
+        document.getElementById("expenseOrian").innerHTML = formatILS(
+          stats.orian.expense,
+        );
+        document.getElementById("balanceOrian").innerHTML = formatILS(balOrian);
+
+        // עדכון שדות חשבון משותף
+        document.getElementById("incomeJoint").innerHTML = formatILS(
+          stats.joint.income,
+        );
+        document.getElementById("expenseJoint").innerHTML = formatILS(
+          stats.joint.expense,
+        );
+        document.getElementById("balanceJoint").innerHTML = formatILS(balJoint);
+
+        document.getElementById("totalBankBalance").innerHTML =
+          "מאזן נטו: " + formatILS(totalNet);
+
+        const realNow = new Date();
+        const realKey = realNow.getFullYear() * 12 + realNow.getMonth();
+        const targetKey = currentYear * 12 + currentMonth;
+
+        // if (targetKey > realKey && db.autoTransfers && db.autoTransfers.length > 0) {
+        //     function getActiveRuleForMonth(vName, targetM, targetY) {
+        //         const tKey = targetY * 12 + targetM;
+        //         const validRules = db.autoTransfers.filter(r => r.vault === vName && (Number(r.startYear) * 12 + Number(r.startMonth)) <= tKey);
+        //         if (validRules.length === 0) return null;
+        //         validRules.sort((a, b) => {
+        //             const keyA = Number(a.startYear) * 12 + Number(a.startMonth);
+        //             const keyB = Number(b.startYear) * 12 + Number(b.startMonth);
+        //             if (keyB !== keyA) return keyB - keyA;
+        //             return b.id - a.id;
+        //         });
+        //         return validRules[0];
+        //     }
+
+        //     let loopStartKey = realKey + 1;
+        //     let loopY = Math.floor(loopStartKey / 12);
+        //     let loopM = loopStartKey % 12;
+
+        //     while ((loopY * 12 + loopM) <= targetKey) {
+        //         const vaultsInRules = [...new Set(db.autoTransfers.map(r => r.vault))];
+        //         vaultsInRules.forEach(vaultName => {
+        //             const activeRule = getActiveRuleForMonth(vaultName, loopM, loopY);
+        //             if (activeRule) {
+        //                 const ruleStartKey = Number(activeRule.startYear) * 12 + Number(activeRule.startMonth);
+        //                 if ((loopY * 12 + loopM) >= ruleStartKey) {
+
+        //                     // BUG FIX: Strict mapping for projected balance calculations
+        //                     const accountMapping = {
+        //                         'אבירון (פרטי)': 'aviron',
+        //                         'אוריין (פרטי)': 'orian',
+        //                         'חשבון משותף': 'joint'
+        //                     };
+
+        //                     const accKey = accountMapping[activeRule.account] || 'joint';
+        //                     if (projectedBalances[accKey] !== undefined) {
+        //                         projectedBalances[accKey] -= activeRule.amount;
+        //                     }
+        //                 }
+        //             }
+        //         });
+        //         loopM++;
+        //         if (loopM > 11) { loopM = 0; loopY++; }
+        //     }
+        // }
+
+        const totalBank =
+          projectedBalances.aviron +
+          projectedBalances.orian +
+          projectedBalances.joint;
+
+        document.getElementById("balanceAviron").innerHTML = formatILS(
+          projectedBalances.aviron,
+        );
+        document.getElementById("balanceOrian").innerHTML = formatILS(
+          projectedBalances.orian,
+        );
+        document.getElementById("balanceJoint").innerHTML = formatILS(
+          projectedBalances.joint,
+        );
+        document.getElementById("totalBankBalance").innerHTML =
+          "סך הכל: " + formatILS(totalBank);
+
+        const vaultsList = document.getElementById("vaultsList");
+        const vaultEntries = Object.entries(db.vaults || {}).sort((a, b) => {
+          if (a[0] === "שארית מהתקציבים") return 1; // תמיד בסוף
+          if (b[0] === "שארית מהתקציבים") return -1;
+          return a[0].localeCompare(b[0], "he");
+        });
+
+        const totalVaultsBal = vaultEntries.reduce(
+          (s, [name]) =>
+            s + getVaultBalanceForMonth(name, currentMonth, currentYear),
+          0,
+        );
+        document.getElementById("totalVaultsBalance").innerHTML =
+          "סך הכל: " + formatILS(totalVaultsBal);
+
+        if (vaultEntries.length === 0) {
+          vaultsList.innerHTML =
+            '<div class="text-xs text-zinc-500 text-center py-2">אין קופות חיסכון</div>';
+        } else {
+          vaultsList.innerHTML = vaultEntries
+            .map(([name]) => {
+              const val = getVaultBalanceForMonth(
+                name,
+                currentMonth,
+                currentYear,
+              );
+              const withdrawBtn = `<button onclick="openModalFor('withdraw', '${name}')" class="bg-amber-950/40 border border-amber-800/50 text-amber-300 hover:bg-amber-900/60 text-[10px] px-2 py-1 rounded-lg transition-colors">משיכה</button>`;
+              const isSystemVault = name === "שארית מהתקציבים";
+              return `
+                <div class="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/80 flex justify-between items-center text-xs ${
+                  isSystemVault ? "border-dashed border-emerald-900/40" : ""
+                }">
+                <span class="font-bold ${
+                  isSystemVault ? "text-emerald-400" : "text-zinc-200"
+                }">${name}</span>
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-amber-400">${formatILS(
+                      val,
+                    )}</span>
+                    ${withdrawBtn}
+                </div>
+                </div>
+            `;
+            })
+            .join("");
+        }
+
+        const vaultsMgrList = document.getElementById("vaultsManagerList");
+        if (vaultEntries.length === 0) {
+          vaultsMgrList.innerHTML =
+            '<div class="text-xs text-zinc-500 text-center py-1">טרם נוצרו קופות</div>';
+        } else {
+          vaultsMgrList.innerHTML = vaultEntries
+            .map(([name]) => {
+              const val = getVaultBalanceForMonth(
+                name,
+                currentMonth,
+                currentYear,
+              );
+              if (name === "שארית מהתקציבים") {
+                return `
+                    <div class="bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-800/80 flex justify-between items-center text-xs border-dashed border-emerald-900/40">
+                    <span class="font-bold text-emerald-400">${name} (${formatILS(
+                      val,
+                    )})</span>
+                    <div class="text-[10px] text-zinc-500 bg-zinc-900 px-2 py-1 rounded-md">קופת מערכת אוטומטית</div>
+                    </div>
+                `;
+              }
+              return `
+                <div class="bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-800/80 flex justify-between items-center text-xs">
+                <span class="font-bold text-zinc-200">${name} (${formatILS(
+                  val,
+                )})</span>
+                <div class="flex gap-2">
+                    <button onclick="renameVault('${name}')" class="text-blue-400 hover:text-blue-300 transition-colors" title="שנה שם קופה"><i data-lucide="type" class="w-4 h-4"></i></button>
+                    <button onclick="editVaultBalance('${name}')" class="text-zinc-400 hover:text-emerald-400 transition-colors" title="עדכן יתרה"><i data-lucide="coins" class="w-4 h-4"></i></button>
+                    <button onclick="deleteVault('${name}')" class="text-rose-400 hover:text-rose-300 transition-colors" title="מחק קופה"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>
+                </div>
+            `;
+            })
+            .join("");
+        }
+
+        const autoTransfersMgrList =
+          document.getElementById("autoTransfersList");
+        if (!db.autoTransfers || db.autoTransfers.length === 0) {
+          autoTransfersMgrList.innerHTML =
+            '<div class="text-xs text-zinc-500 text-center py-1">אין העברות אוטומטיות מוגדרות</div>';
+        } else {
+          autoTransfersMgrList.innerHTML = db.autoTransfers
+            .map((at) => {
+              const mNames = [
+                "ינואר",
+                "פברואר",
+                "מרץ",
+                "אפריל",
+                "מאי",
+                "יוני",
+                "יולי",
+                "אוגוסט",
+                "ספטמבר",
+                "אוקטובר",
+                "נובמבר",
+                "דצמבר",
+              ];
+              const startLabel =
+                at.startMonth !== undefined
+                  ? `החל מ-${mNames[at.startMonth]} ${at.startYear}`
+                  : "פעיל";
+              return `
+                <div class="bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-800/80 flex justify-between items-center text-xs">
+                <div>
+                    <div class="font-bold text-zinc-200">${formatILS(
+                      at.amount,
+                    )} לקופת ${at.vault}</div>
+                    <div class="text-[10px] text-zinc-500">הפקדה אוטומטית (1 בחודש) • ${startLabel}</div>
+                </div>
+                <button onclick="deleteAutoTransfer(${
+                  at.id
+                })" class="text-rose-400 hover:text-rose-300 font-bold text-sm px-2">&times;</button>
+                </div>
+            `;
+            })
+            .join("");
+        }
+
+        let filtered = db.transactions.filter(
+          (t) => t.month === currentMonth && t.year === currentYear,
+        );
+
+        const activeFilter = document.getElementById("filterTransactions")
+          ? document.getElementById("filterTransactions").value
+          : "all";
+        if (activeFilter !== "all") {
+          filtered = filtered.filter((t) => t.category === activeFilter);
+        }
+
+        // מנגנון המיון החדש
+        filtered.sort((a, b) => {
+          // חילוץ היום מתוך התאריך (בפורמט DD/MM/YYYY)
+          const dayA = parseInt(a.date.split("/")[0], 10);
+          const dayB = parseInt(b.date.split("/")[0], 10);
+
+          if (currentSort === "date") {
+            if (dayA !== dayB) return dayA - dayB; // מיון ראשי: תאריך (מוקדם למאוחר)
+            return b.amount - a.amount; // מיון משני: סכום (גבוה לנמוך)
+          } else {
+            if (a.amount !== b.amount) return b.amount - a.amount; // מיון ראשי: סכום (גבוה לנמוך)
+            return dayA - dayB; // מיון משני: תאריך (מוקדם למאוחר)
+          }
+        });
+
+        const list = document.getElementById("transactionsList");
+
+        // כדי לוודא שתפריט הבחירה תמיד מסונכרן עם המשתנה שלנו
+        const sortSelect = document.getElementById("sortTransactions");
+        if (sortSelect) sortSelect.value = currentSort;
+
+        if (filtered.length === 0) {
+          list.innerHTML =
+            '<div class="text-center py-6 text-zinc-500 text-xs">אין תנועות לחודש זה</div>';
+        } else {
+          list.innerHTML = filtered
+            .map((t) => {
+              let badgeColor =
+                t.type === "income"
+                  ? "text-emerald-400"
+                  : t.type === "transfer"
+                    ? "text-blue-400"
+                    : t.type === "withdraw"
+                      ? "text-amber-400"
+                      : "text-rose-400";
+              let sign =
+                t.type === "income" || t.type === "withdraw" ? "+" : "-";
+              return `
+                <div class="flex justify-between items-center bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/80 text-xs">
+                <div>
+                    <div class="font-bold text-zinc-200">${
+                      t.isJointPaidPrivate
+                        ? '<span class="text-amber-400 ml-1" title="הוצאה משותפת מפרטי"><i data-lucide="users" class="w-3 h-3 inline"></i></span>'
+                        : ""
+                    }${t.category} > ${t.subCategory || "כללי"} ${
+                      t.note ? "• " + t.note : ""
+                    }</div>
+                    <div class="text-zinc-500 text-[11px]">${t.account} | ${
+                      t.date
+                    }</div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="font-bold ${badgeColor}">${formatILS(
+                      t.amount,
+                      sign,
+                    )}</span>
+                    <div class="flex gap-1.5 border-r border-zinc-800 pr-3">
+                    <button onclick="editTransaction(${
+                      t.id
+                    })" class="text-zinc-500 hover:text-emerald-400 transition-colors">
+                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <button onclick="deleteTransaction(${
+                      t.id
+                    })" class="text-zinc-600 hover:text-rose-400 transition-colors">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                    </div>
+                </div>
+                </div>
+            `;
+            })
+            .join("");
+        }
+        const totalJointPrivate = filtered
+          .filter((t) => t.isJointPaidPrivate)
+          .reduce((sum, t) => sum + t.amount, 0);
+        document.getElementById("transCount").innerText =
+          filtered.length + " תנועות";
+
+        const catMgr = document.getElementById("categoriesManagerList");
+        const sortedCatEntries = Object.entries(db.categories).sort((a, b) =>
+          a[0].localeCompare(b[0], "he"),
+        );
+        catMgr.innerHTML = sortedCatEntries
+          .map(([catName, catData]) => {
+            return `
+            <div class="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/80 space-y-2 text-xs">
+                <div class="flex justify-between items-center font-bold text-zinc-200">
+                <span>${catName}</span>
+                <div>
+                    <button onclick="renameMainCategory('${catName}')" class="text-blue-500/70 hover:text-blue-400 font-normal text-[11px] hover:underline ml-2">(ערוך)</button>
+                    <button onclick="deleteMainCategory('${catName}')" class="text-rose-500/70 hover:text-rose-400 font-normal text-[11px] hover:underline">(מחק)</button>
+                </div>
+                </div>
+                <div class="flex flex-wrap gap-1.5 pt-1">
+                ${[...catData.sub]
+                  .sort((a, b) => a.localeCompare(b, "he"))
+                  .map(
+                    (sub) => `
+                    <span class="bg-zinc-900 border border-zinc-800 px-2 py-1 rounded-lg flex items-center gap-1 text-zinc-400">
+                    ${sub}
+                    <button onclick="renameSubCategory('${catName}', '${sub}')" class="text-blue-400 ml-1 hover:text-blue-300"><i data-lucide="edit-2" class="w-3 h-3"></i></button>
+                    <button onclick="deleteSubCategory('${catName}', '${sub}')" class="text-rose-400 font-bold hover:text-rose-300">&times;</button>
+                    </span>
+                `,
+                  )
+                  .join("")}
+                ${
+                  catData.sub.length === 0
+                    ? '<span class="text-[11px] text-zinc-600">אין תת-קטגוריות</span>'
+                    : ""
+                }
+                </div>
+            </div>
+            `;
+          })
+          .join("");
+
+        const budgetList = document.getElementById("budgetProgressList");
+        const budgetMgrList = document.getElementById("budgetsManagerList");
+
+        budgetList.innerHTML = "";
+        let budgetsHtml = "";
+        let hasBudgets = false;
+
+        allBudgetKeys = new Set();
+        if (db.monthlyBudgets) {
+          Object.keys(db.monthlyBudgets).forEach((monthKey) => {
+            if (monthKey <= getMonthKey(currentMonth, currentYear)) {
+              Object.keys(db.monthlyBudgets[monthKey]).forEach((k) =>
+                allBudgetKeys.add(k),
+              );
+            }
+          });
+        }
+
+        const sortedBudgetKeys = Array.from(allBudgetKeys).sort((a, b) =>
+          a.localeCompare(b, "he"),
+        );
+        sortedBudgetKeys.forEach((catKey) => {
+          const budgetVal = getCategoryBudgetForMonth(
+            catKey,
+            currentMonth,
+            currentYear,
+          );
+
+          let isRelevant = budgetVal > 0;
+
+          if (isRelevant) {
+            hasBudgets = true;
+            const nameDisplay = catKey.replace("|||", " > ");
+
+            // 1. Manager List View (Settings & Main Tab Toggle)
+            budgetsHtml += `
+                    <div class="bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-800/80 flex justify-between items-center text-xs">
+                    <span class="font-bold text-zinc-200">${nameDisplay}</span>
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold text-emerald-400">${formatILS(
+                          budgetVal,
+                        )}</span>
+                        <div class="flex gap-1.5 border-r border-zinc-800 pr-3">
+                        <button onclick="editCategoryBudget('${catKey}', ${budgetVal})" class="text-zinc-500 hover:text-emerald-400 transition-colors">
+                            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="deleteCategoryBudget('${catKey}')" class="text-zinc-600 hover:text-rose-400 transition-colors">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                        </div>
+                    </div>
+                    </div>
+                `;
+
+            // 2. Progress Bar View
+            const spent = getCategorySpentForMonth(
+              catKey,
+              currentMonth,
+              currentYear,
+            );
+            const totalAvailable = budgetVal;
+            const pct = Math.min(
+              100,
+              Math.round((spent / totalAvailable) * 100),
+            );
+
+            budgetList.innerHTML += `
+                    <div class="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/80 space-y-1.5 text-xs">
+                    <div class="flex justify-between font-bold">
+                        <span class="text-zinc-200">${nameDisplay}</span>
+                        <div class="text-left">
+                        <span class="${
+                          spent > totalAvailable
+                            ? "text-rose-400"
+                            : "text-zinc-400"
+                        }"><span dir="ltr">${spent.toLocaleString()} / ${totalAvailable.toLocaleString()} ₪</span> (${pct}%)</span>
+                        </div>
+                    </div>
+                    <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+                        <div class="${
+                          pct >= 90 ? "bg-rose-500" : "bg-emerald-500"
+                        } h-full transition-all duration-300" style="width: ${pct}%"></div>
+                    </div>
+                    </div>
+                `;
+          }
+        });
+
+        if (!budgetList.innerHTML)
+          budgetList.innerHTML =
+            '<div class="text-xs text-zinc-500 text-center py-2">טרם הוגדרו תקציבים לחודש זה</div>';
+
+        if (!hasBudgets)
+          budgetMgrList.innerHTML =
+            '<div class="text-xs text-zinc-500 text-center py-2">אין תקציבים פעילים לחודש זה</div>';
+        else budgetMgrList.innerHTML = budgetsHtml;
+
+        if (document.getElementById("tab-charts").classList.contains("active"))
+          renderCharts();
+
+        const summaryBox = document.getElementById("jointPrivateSummaryBox");
+        if (summaryBox && !summaryBox.classList.contains("hidden")) {
+          updateJointPrivateSummaryValues();
+        }
+        lucide.createIcons();
+
+        const auditContainer = document.getElementById("auditLogsContainer");
+        if (auditContainer) {
+          const currentKey = getMonthKey(currentMonth, currentYear);
+          const logs = (db.auditLogs && db.auditLogs[currentKey]) || [];
+          if (logs.length === 0) {
+            auditContainer.innerHTML =
+              '<div class="text-zinc-500 text-center py-2">אין פעולות מתועדות לחודש זה</div>';
+          } else {
+            auditContainer.innerHTML = logs
+              .map(
+                (l) => `
+                    <div class="bg-zinc-950 p-2.5 rounded-lg border border-zinc-800/50">
+                        <div class="text-[10px] text-zinc-500">${l.time}</div>
+                        <div class="font-bold text-zinc-300 mt-0.5">${l.action}</div>
+                        <div class="text-zinc-400">${l.details}</div>
+                    </div>
+                `,
+              )
+              .join("");
+          }
+        }
+      }
+
+      let chartInstanceDoughnut = null;
+      let chartInstanceBar = null;
+      let chartInstanceLine = null;
+
+      function renderCharts() {
+        const filtered = db.transactions.filter(
+          (t) => t.month === currentMonth && t.year === currentYear,
+        );
+
+        const totalIncome = filtered
+          .filter((t) => t.type === "income")
+          .reduce((sum, t) => sum + t.amount, 0);
+        const totalExpense = filtered
+          .filter((t) => t.type === "expense")
+          .reduce((sum, t) => sum + t.amount, 0);
+        const totalVaultDeposit = filtered
+          .filter((t) => t.type === "transfer")
+          .reduce((sum, t) => sum + t.amount, 0);
+        const netSavings = totalIncome - totalExpense;
+
+        const catTotals = {};
+        filtered
+          .filter((t) => t.type === "expense")
+          .forEach((t) => {
+            catTotals[t.category] = (catTotals[t.category] || 0) + t.amount;
+          });
+
+        let topCategory = "-";
+        let topVal = 0;
+        Object.entries(catTotals).forEach(([cat, val]) => {
+          if (val > topVal) {
+            topVal = val;
+            topCategory = cat;
+          }
+        });
+
+        document.getElementById("kpiIncome").innerHTML = formatILS(totalIncome);
+        document.getElementById("kpiExpense").innerHTML =
+          formatILS(totalExpense);
+        document.getElementById("kpiSavings").innerHTML = formatILS(netSavings);
+        document.getElementById("kpiTopCategory").innerHTML =
+          topCategory !== "-"
+            ? `${topCategory} (${formatILS(topVal)})`
+            : "אין הוצאות";
+
+        const doughnutCtx = document
+          .getElementById("chartCategoryDoughnut")
+          .getContext("2d");
+        if (chartInstanceDoughnut) chartInstanceDoughnut.destroy();
+
+        const catLabels = Object.keys(catTotals);
+        const catData = Object.values(catTotals);
+
+        chartInstanceDoughnut = new Chart(doughnutCtx, {
+          type: "doughnut",
+          data: {
+            labels: catLabels.length ? catLabels : ["אין הוצאות"],
+            datasets: [
+              {
+                data: catData.length ? catData : [1],
+                backgroundColor: catData.length
+                  ? [
+                      "#f43f5e",
+                      "#10b981",
+                      "#3b82f6",
+                      "#f59e0b",
+                      "#8b5cf6",
+                      "#ec4899",
+                      "#06b6d4",
+                    ]
+                  : ["#27272a"],
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { color: "#d4d4d8", font: { size: 10 } },
+              },
+            },
+          },
+        });
+
+        const barCtx = document
+          .getElementById("chartIncomeExpenseBar")
+          .getContext("2d");
+        if (chartInstanceBar) chartInstanceBar.destroy();
+
+        chartInstanceBar = new Chart(barCtx, {
+          type: "bar",
+          data: {
+            labels: ["הכנסות", "הוצאות", "הפקדות לקופה"],
+            datasets: [
+              {
+                data: [totalIncome, totalExpense, totalVaultDeposit],
+                backgroundColor: ["#10b981", "#f43f5e", "#3b82f6"],
+                borderRadius: 8,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { ticks: { color: "#a1a1aa" }, grid: { display: false } },
+              y: { ticks: { color: "#a1a1aa" }, grid: { color: "#27272a" } },
+            },
+          },
+        });
+
+        const lineCtx = document
+          .getElementById("chartTrendLine")
+          .getContext("2d");
+        if (chartInstanceLine) chartInstanceLine.destroy();
+
+        const monthNamesShort = [
+          "ינו",
+          "פבר",
+          "מרץ",
+          "אפר",
+          "מאי",
+          "יונ",
+          "יול",
+          "אוג",
+          "ספט",
+          "אוק",
+          "נוב",
+          "דצמ",
+        ];
+        const trendLabels = [];
+        const trendExpenseData = [];
+
+        for (let i = 5; i >= 0; i--) {
+          let m = currentMonth - i;
+          let y = currentYear;
+          if (m < 0) {
+            m += 12;
+            y--;
+          }
+
+          trendLabels.push(`${monthNamesShort[m]} ${y}`);
+          const monthSpent = db.transactions
+            .filter(
+              (t) => t.month === m && t.year === y && t.type === "expense",
+            )
+            .reduce((sum, t) => sum + t.amount, 0);
+          trendExpenseData.push(monthSpent);
+        }
+
+        chartInstanceLine = new Chart(lineCtx, {
+          type: "line",
+          data: {
+            labels: trendLabels,
+            datasets: [
+              {
+                label: "הוצאות",
+                data: trendExpenseData,
+                borderColor: "#f43f5e",
+                backgroundColor: "rgba(244, 63, 94, 0.1)",
+                fill: true,
+                tension: 0.3,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: {
+                ticks: { color: "#a1a1aa", font: { size: 10 } },
+                grid: { display: false },
+              },
+              y: { ticks: { color: "#a1a1aa" }, grid: { color: "#27272a" } },
+            },
+          },
+        });
+      }
+
+      function changeMonth(delta) {
+        currentMonth += delta;
+        if (currentMonth > 11) {
+          currentMonth = 0;
+          currentYear++;
+        }
+        if (currentMonth < 0) {
+          currentMonth = 11;
+          currentYear--;
+        }
+        processAutoTransfers();
+        updateUI();
+      }
+
+      function changeSort() {
+        currentSort = document.getElementById("sortTransactions").value;
+        updateUI();
+      }
+
+      function exportToExcel() {
+        if (!db.transactions || db.transactions.length === 0)
+          return alert("אין תנועות להורדה");
+        const data = db.transactions.map((t) => ({
+          תאריך: t.date,
+          "חשבון / קופה": t.account,
+          קטגוריה: t.category,
+          "תת-קטגוריה": t.subCategory || "",
+          הערה: t.note || "",
+          סוג:
+            t.type === "expense"
+              ? "הוצאה"
+              : t.type === "income"
+                ? "הכנסה"
+                : t.type === "transfer"
+                  ? "הפקדה לקופה"
+                  : "משיכה מקופה",
+          "סכום (₪)": t.amount,
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "תנועות");
+        XLSX.writeFile(wb, `VaultWise_${currentMonth + 1}_${currentYear}.xlsx`);
+      }
+
+      function exportBackupJSON() {
+        const dataStr = JSON.stringify(db, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `VaultWise_Backup_${new Date()
+          .toLocaleDateString("he-IL")
+          .replace(/\./g, "-")}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      function importBackupJSON(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            const importedData = JSON.parse(e.target.result);
+            if (
+              importedData &&
+              importedData.accounts &&
+              importedData.transactions
+            ) {
+              if (
+                confirm(
+                  "אזהרה: טעינת הגיבוי תדרוס את כל הנתונים בענן לכולם! להמשיך?",
+                )
+              ) {
+                db = importedData;
+                saveData();
+                alert("הנתונים הועלו בהצלחה לענן!");
+              }
+            }
+          } catch (err) {
+            alert("שגיאה בקריאת הקובץ.");
+          }
+        };
+        reader.readAsText(file);
+        event.target.value = "";
+      }
+
+      function importFromWhatsApp() {
+        const text = document.getElementById("whatsappInput").value;
+        if (!text) return alert("נא להדביק טקסט מוואטסאפ");
+
+        const lines = text.split("\n");
+        let count = 0;
+
+        lines.forEach((line) => {
+          // מזהה פורמט וואטסאפ: "MM/DD/YY, HH:MM - Name: Text"
+          const match = line.match(
+            /\[?(?:\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4})[,\s\d:]+\]?\s?-?\s?(.*?):\s(.*)$/,
+          );
+
+          if (match) {
+            let [_, month, day, year, sender, content] = match;
+
+            if (year.length === 2) year = "20" + year;
+            content = content.replace(/<This message was edited>/g, "").trim();
+
+            // שליפת המספר בסוף השורה (הסכום)
+            const amountMatch = content.match(/(\d+(?:\.\d+)?)$/);
+
+            if (amountMatch) {
+              const amount = parseFloat(amountMatch[1]);
+              let rawNote = content.replace(amountMatch[1], "").trim();
+
+              // סינון הודעות שאינן הוצאות
+              if (
+                rawNote.includes("הוספתי לאקסל") ||
+                rawNote.includes("עדכנתי את האקסל") ||
+                rawNote === ""
+              )
+                return;
+
+              // קביעת חשבון משלם (משותף אלא אם צוין אישי)
+              let account = "חשבון משותף";
+              const isOrian = sender.includes("אוריין");
+              if (rawNote.includes("(אישי)")) {
+                account = isOrian ? "אוריין (פרטי)" : "אבירון (פרטי)";
+              }
+
+              // ניקוי הערה
+              let note = rawNote
+                .replace(/^\*/, "")
+                .replace(/\(אישי\)/g, "")
+                .trim();
+              if (note === "") return;
+
+              // סיווג חכם לקטגוריות לפי מילות מפתח נפוצות מהקובץ
+              let category = "אחר 🖊️";
+              let subCategory = "כללי";
+
+              if (note.includes("דלק")) {
+                category = "רכב 🚗";
+                subCategory = "דלק";
+              } else if (
+                note.includes("רמי לוי") ||
+                note.includes("שופרסל") ||
+                note.includes("סופר") ||
+                note.includes("ויקטורי") ||
+                note.includes("טיב טעם") ||
+                note.includes("ניצת")
+              ) {
+                category = "הוצאות בית 🏠";
+                subCategory = "סופר 🛒";
+              } else if (
+                note.includes("חשמל") ||
+                note.includes("מים") ||
+                note.includes("ארנונה") ||
+                note.includes("גז") ||
+                note.includes("וועד")
+              ) {
+                category = "חשבונות 🧾";
+                subCategory = note.includes("חשמל")
+                  ? "חשמל ⚡"
+                  : note.includes("מים")
+                    ? "מים 💧"
+                    : note.includes("ארנונה")
+                      ? "ארנונה 🏛"
+                      : "כללי";
+              } else if (
+                note.includes("פלאפל") ||
+                note.includes("המבורגר") ||
+                note.includes("קמפאי") ||
+                note.includes("מסעדה") ||
+                note.includes("פיצה") ||
+                note.includes("סבא גפטו") ||
+                note.includes("ארומה")
+              ) {
+                category = "אוכל בחוץ 🍜";
+                subCategory = "מסעדות";
+              } else if (
+                note.includes("נינה") ||
+                note.includes("זו סטור") ||
+                note.includes("ספידוג") ||
+                note.includes("אילוף") ||
+                note.includes("וטרינר")
+              ) {
+                category = "חיות מחמד 🐶";
+                subCategory = "כללי";
+              } else if (note.includes("פרטנר") || note.includes("פלאפון")) {
+                category = "חשבונות 🧾";
+                subCategory = "טלפון 📱";
+              } else if (
+                note.includes("יוגה") ||
+                note.includes("סטודיו") ||
+                note.includes("פוזיטיב")
+              ) {
+                category = "אימונים 🧘🏽";
+                subCategory = note.includes("יוגה") ? "יוגה" : "סטודיו";
+              }
+
+              // מניעת כפילויות: בדיקה האם כבר קיימת תנועה זהה בחודש הזה
+              const exists = db.transactions.some(
+                (t) =>
+                  t.amount === amount &&
+                  t.note === note &&
+                  t.month === parseInt(month) - 1 &&
+                  t.year === parseInt(year),
+              );
+
+              if (!exists && amount > 0) {
+                // עדכון יתרות העו"ש
+                adjustAccountOrVault(account, amount, true);
+
+                db.transactions.unshift({
+                  id: Date.now() + Math.random(),
+                  date: `${day.padStart(2, "0")}/${month.padStart(
+                    2,
+                    "0",
+                  )}/${year}`,
+                  month: parseInt(month) - 1,
+                  year: parseInt(year),
+                  type: "expense",
+                  amount: amount,
+                  account: account,
+                  category: category,
+                  subCategory: subCategory,
+                  note: note,
+                });
+                count++;
+              }
+            }
+          }
+        });
+
+        if (count > 0) {
+          saveData();
+          document.getElementById("whatsappInput").value = "";
+          alert(
+            `פעולה הושלמה! יובאו בהצלחה ${count} תנועות חדשות. המערכת דילגה על כפילויות והודעות צ'אט.`,
+          );
+        } else {
+          alert(
+            "לא נמצאו תנועות חדשות לייבוא. ייתכן שכולן כבר קיימות במערכת או שהטקסט אינו בפורמט וואטסאפ תקין.",
+          );
+        }
+      }
+
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () =>
+          navigator.serviceWorker.register("/sw.js"),
+        );
+      }
+
+      function toggleJointPrivateSummary() {
+        const box = document.getElementById("jointPrivateSummaryBox");
+        box.classList.toggle("hidden");
+        if (!box.classList.contains("hidden")) {
+          updateJointPrivateSummaryValues();
+        }
+      }
+
+      function updateJointPrivateSummaryValues() {
+        const filtered = db.transactions.filter(
+          (t) => t.month === currentMonth && t.year === currentYear,
+        );
+
+        const sumAviron = filtered
+          .filter((t) => t.isJointPaidPrivate && t.account === "אבירון (פרטי)")
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        const sumOrian = filtered
+          .filter((t) => t.isJointPaidPrivate && t.account === "אוריין (פרטי)")
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        document.getElementById("sumAvironJoint").innerHTML =
+          formatILS(sumAviron);
+        document.getElementById("sumOrianJoint").innerHTML =
+          formatILS(sumOrian);
+      }
+    </script>
+  </body>
+</html>
