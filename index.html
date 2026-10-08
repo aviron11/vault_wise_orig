@@ -2712,40 +2712,63 @@
           `הזן שם חדש לתת-קטגוריה "${oldSubName}":`,
           oldSubName,
         );
+        if (!newSubName || newSubName.trim() === "") return;
+
+        // רשימת קטגוריות ראשיות לבחירה
+        const mainCatsList = Object.keys(db.categories);
+        let promptMsg =
+          `בחר קטגוריה ראשית חדשה לתת-קטגוריה "${newSubName.trim()}" (הקש את שם הקטגוריה בדיוק או השאר ריק כדי להשאיר ב"${mainCat}"):\n\n` +
+          mainCatsList.join(" | ");
+
+        let targetMainCat = prompt(promptMsg, mainCat);
+        if (targetMainCat === null) return; // בטל
+        targetMainCat = targetMainCat.trim();
+
+        if (targetMainCat === "") targetMainCat = mainCat;
+
+        if (!db.categories[targetMainCat]) {
+          return alert("שגיאה: הקטגוריה הראשית שהוזנה אינה קיימת.");
+        }
+
         if (
-          !newSubName ||
-          newSubName.trim() === "" ||
-          newSubName === oldSubName
-        )
-          return;
-        if (db.categories[mainCat].sub.includes(newSubName))
-          return alert("תת-קטגוריה בשם זה כבר קיימת.");
+          db.categories[targetMainCat].sub.includes(newSubName.trim()) &&
+          (targetMainCat !== mainCat || newSubName.trim() !== oldSubName)
+        ) {
+          return alert("תת-קטגוריה בשם זה כבר קיימת בקטגוריה היעד.");
+        }
 
-        // 1. עדכון המערך
-        const index = db.categories[mainCat].sub.indexOf(oldSubName);
-        if (index !== -1) db.categories[mainCat].sub[index] = newSubName;
+        // 1. הסרה מהקטגוריה הישנה
+        db.categories[mainCat].sub = db.categories[mainCat].sub.filter(
+          (s) => s !== oldSubName,
+        );
 
-        // 2. עדכון תנועות
+        // 2. הוספה לקטגוריה החדשה
+        db.categories[targetMainCat].sub.push(newSubName.trim());
+
+        // 3. עדכון תנועות קיימות
         db.transactions.forEach((t) => {
-          if (t.category === mainCat && t.subCategory === oldSubName)
-            t.subCategory = newSubName;
+          if (t.category === mainCat && t.subCategory === oldSubName) {
+            t.category = targetMainCat;
+            t.subCategory = newSubName.trim();
+          }
         });
 
-        // 3. עדכון תקציבים
+        // 4. עדכון תקציבים קיימים
         if (db.monthlyBudgets) {
           Object.keys(db.monthlyBudgets).forEach((monthKey) => {
-            const targetKey = `${mainCat}|||${oldSubName}`;
-            const newKey = `${mainCat}|||${newSubName}`;
-            if (db.monthlyBudgets[monthKey][targetKey] !== undefined) {
+            const oldKey = `${mainCat}|||${oldSubName}`;
+            const newKey = `${targetMainCat}|||${newSubName.trim()}`;
+            if (db.monthlyBudgets[monthKey][oldKey] !== undefined) {
               db.monthlyBudgets[monthKey][newKey] =
-                db.monthlyBudgets[monthKey][targetKey];
-              delete db.monthlyBudgets[monthKey][targetKey];
+                db.monthlyBudgets[monthKey][oldKey];
+              delete db.monthlyBudgets[monthKey][oldKey];
             }
           });
         }
+
         addAuditLog(
-          "שינוי שם תת-קטגוריה",
-          `מ-${oldSubName} ל-${newSubName} (${mainCat})`,
+          "עריכת תת-קטגוריה והעברה",
+          `מ-${mainCat} > ${oldSubName} ל-${targetMainCat} > ${newSubName.trim()}`,
         );
         saveData();
         populateDropdowns();
