@@ -2778,7 +2778,12 @@
           type === "income"
             ? db.incomeCategories || defaultIncomeCategories
             : db.categories;
-        Object.keys(sourceCats).forEach(
+
+        // מיון אלפביתי של הקטגוריות בעת מעבר בין סוגי תנועה (הוצאה/הכנסה)
+        const sortedCats = Object.keys(sourceCats).sort((a, b) =>
+          a.localeCompare(b, "he"),
+        );
+        sortedCats.forEach(
           (cat) =>
             (mainSelect.innerHTML += `<option value="${cat}">${cat}</option>`),
         );
