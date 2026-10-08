@@ -1200,17 +1200,6 @@
               class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
             />
           </div>
-          <div>
-            <label class="text-xs text-zinc-400 block mb-1 font-medium"
-              >הערות / פירוט נוסף</label
-            >
-            <input
-              type="text"
-              id="inputNote"
-              placeholder="לדוגמה: קניות לשבת..."
-              class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
-            />
-          </div>
           <div id="jointPaidPrivateGroup" class="hidden">
             <label
               class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer mt-1"
@@ -1272,18 +1261,6 @@
                 </select>
               </div>
             </div>
-          </div>
-          <div id="jointPaidPrivateGroup" class="hidden">
-            <label
-              class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer mt-1"
-            >
-              <input
-                type="checkbox"
-                id="inputJointPaidPrivate"
-                class="accent-emerald-500"
-              />
-              <span>סמן כהוצאה משותפת (יוקזז מחשבון פרטי)</span>
-            </label>
           </div>
         </div>
 
@@ -2482,6 +2459,9 @@
         document.getElementById("inputAmount").value = "";
         document.getElementById("inputNote").value = "";
         document.getElementById("inputJointPaidPrivate").checked = false;
+        document.getElementById("duplicateSection").classList.add("hidden");
+        document.getElementById("inputIsDuplicate").checked = false;
+        document.getElementById("duplicateFields").classList.add("hidden");
 
         const dayInput = document.getElementById("inputDay");
         if (dayInput) dayInput.value = "";
@@ -2531,6 +2511,9 @@
         } else {
           document.getElementById("selectTargetVault").value = t.category;
         }
+        document.getElementById("duplicateSection").classList.remove("hidden");
+        document.getElementById("inputIsDuplicate").checked = false;
+        document.getElementById("duplicateFields").classList.add("hidden");
       }
 
       function addNewMainCategory() {
@@ -4402,6 +4385,16 @@
           formatILS(sumAviron);
         document.getElementById("sumOrianJoint").innerHTML =
           formatILS(sumOrian);
+      }
+
+      function toggleDuplicateFields() {
+        const isChecked = document.getElementById("inputIsDuplicate").checked;
+        const fields = document.getElementById("duplicateFields");
+        if (isChecked) {
+          fields.classList.remove("hidden");
+        } else {
+          fields.classList.add("hidden");
+        }
       }
     </script>
   </body>
